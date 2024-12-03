@@ -10,10 +10,24 @@ def draw_grid(screen):
         pygame.draw.line(screen, (50, 50, 50), (0, y), (WIDTH, y))
 
 
-def draw_rover(screen, rover_pos):
-    """Draws the rover."""
+def draw_rover(screen, rover_pos, rover_angle, mast_angle):
+    """Draws the rover and its mast direction."""
+    # Draw the rover's body
     pygame.draw.circle(screen, ROVER_COLOR, (int(rover_pos[0]), int(rover_pos[1])), GRID_SIZE // 2)
 
+    # Draw the rover's facing direction as a line
+    facing_end = (
+        rover_pos[0] + math.cos(math.radians(rover_angle)) * GRID_SIZE,
+        rover_pos[1] - math.sin(math.radians(rover_angle)) * GRID_SIZE
+    )
+    pygame.draw.line(screen, (255, 0, 0), rover_pos, facing_end, 2)
+
+    # Draw the mast's facing direction as a line
+    mast_end = (
+        rover_pos[0] + math.cos(math.radians(mast_angle)) * GRID_SIZE,
+        rover_pos[1] - math.sin(math.radians(mast_angle)) * GRID_SIZE
+    )
+    pygame.draw.line(screen, (0, 255, 0), rover_pos, mast_end, 2)
 
 def draw_path(screen, path):
     """Draws the path."""

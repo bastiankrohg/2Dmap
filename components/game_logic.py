@@ -2,34 +2,43 @@ import pygame
 import math
 
 def update_rover_position(keys, rover_pos, rover_angle, path, odometer, mast_angle):
-    SPEED = 5
-    TURN_ANGLE = 5
+    """Updates rover position, angle, and path based on key presses."""
+    speed = 5  # Movement speed in pixels per frame
+    turn_speed = 5  # Angle change in degrees per frame
 
-    if keys[pygame.K_w]:
-        rover_pos[0] += SPEED * math.cos(math.radians(rover_angle))
-        rover_pos[1] -= SPEED * math.sin(math.radians(rover_angle))
-        odometer += SPEED
+    # Track if movement happened to update path
+    moved = False
 
-    if keys[pygame.K_s]:
-        rover_pos[0] -= SPEED * math.cos(math.radians(rover_angle))
-        rover_pos[1] += SPEED * math.sin(math.radians(rover_angle))
-        odometer += SPEED
+    # Movement logic
+    if keys[pygame.K_UP]:  # Move forward
+        rover_pos[0] += speed * math.cos(math.radians(rover_angle))
+        rover_pos[1] -= speed * math.sin(math.radians(rover_angle))
+        odometer += speed
+        moved = True
 
-    if keys[pygame.K_a]:
-        rover_angle += TURN_ANGLE
+    if keys[pygame.K_DOWN]:  # Move backward
+        rover_pos[0] -= speed * math.cos(math.radians(rover_angle))
+        rover_pos[1] += speed * math.sin(math.radians(rover_angle))
+        odometer += speed
+        moved = True
 
-    if keys[pygame.K_d]:
-        rover_angle -= TURN_ANGLE
+    if keys[pygame.K_LEFT]:  # Turn left
+        rover_angle = (rover_angle - turn_speed) % 360
+        moved = True
 
-    if keys[pygame.K_q]:
-        mast_angle += TURN_ANGLE
+    if keys[pygame.K_RIGHT]:  # Turn right
+        rover_angle = (rover_angle + turn_speed) % 360
+        moved = True
 
-    if keys[pygame.K_e]:
-        mast_angle -= TURN_ANGLE
+    # Adjust mast angle independently
+    if keys[pygame.K_a]:  # Rotate mast left
+        mast_angle = (mast_angle - turn_speed) % 360
 
-    # Ensure only valid numerical data is appended to path
-    if keys[pygame.K_w] or keys[pygame.K_s]:
-        if isinstance(rover_pos[0], (int, float)) and isinstance(rover_pos[1], (int, float)):
-            path.append(tuple(rover_pos))
+    if keys[pygame.K_d]:  # Rotate mast right
+        mast_angle = (mast_angle + turn_speed) % 360
+
+    # Add current position to path if moved
+    if moved:
+        path.append(rover_pos[:])  # Store a copy of the current position
 
     return rover_pos, rover_angle, path, odometer, mast_angle

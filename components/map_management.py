@@ -1,7 +1,7 @@
 import os
 import json
 from datetime import datetime
-from components.constants import MAPS_DIR
+from components.constants import MAPS_DIR, WIDTH, HEIGHT
 
 LAST_USED_MAP_FILE = os.path.join(MAPS_DIR, "last_used_map.json")
 
@@ -77,5 +77,9 @@ def list_maps():
     return files
 
 def reset_map():
-    """Resets the map to an initial state."""
-    return [], [400, 400], [], []
+    """Resets the map to a blank state with rover centered."""
+    path = []  # Clear the path
+    rover_pos = [WIDTH // 2, HEIGHT // 2]  # Start in the center
+    resources = []  # Clear resources
+    obstacles = []  # Clear obstacles
+    return path, rover_pos, resources, obstacles

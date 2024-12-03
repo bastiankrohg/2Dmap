@@ -36,7 +36,10 @@ def main(map_name, save_enabled):
         # Display menu
         selected_action, auto_save = menu_screen(screen, auto_save)
         print(f"[DEBUG] Menu returned action: {selected_action}, Auto Save: {auto_save}")
-        if selected_action == "load":
+        if selected_action == "new":
+            print("[DEBUG] Starting a new map.")
+            path, rover_pos, resources, obstacles = reset_map()
+        elif selected_action == "load":
             files = list_maps()
             print(f"[DEBUG] Available maps: {files}")
             if files:
