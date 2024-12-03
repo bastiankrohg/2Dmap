@@ -1,0 +1,26 @@
+import os
+
+# Screen dimensions
+WIDTH, HEIGHT = 800, 800
+GRID_SIZE = 20
+
+# Colors
+ROVER_COLOR = (0, 255, 0)
+MAST_COLOR = (0, 0, 255)
+RESOURCE_COLOR = (0, 255, 255)
+OBSTACLE_COLOR = (255, 0, 0)
+PATH_COLOR = (200, 200, 200)
+BACKGROUND_COLOR = (0, 0, 0)
+
+# Distances
+RESOURCE_DISTANCE = 15
+OBSTACLE_DISTANCE = 15
+OBSTACLE_LENGTH = 30
+
+# Fonts
+HUD_FONT_SIZE = 24
+MENU_FONT_SIZE = 36
+
+# Map directory
+MAPS_DIR = "maps"
+os.makedirs(MAPS_DIR, exist_ok=True)

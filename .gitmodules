@@ -1,0 +1,3 @@
+[submodule "rover_protos"]
+	path = rover_protos
+	url = git@github.com:bastiankrohg/rover_protos.git
