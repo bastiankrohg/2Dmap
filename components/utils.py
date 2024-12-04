@@ -1,4 +1,6 @@
 import math
+import numpy as np
+import pygame
 
 def compute_resource_position(rover_pos, mast_angle, resource_distance=15):
     """
@@ -37,3 +39,10 @@ def compute_obstacle_positions(rover_pos, mast_angle, obstacle_distance=15, obst
     end_y = center_y + (obstacle_length / 2) * math.cos(math.radians(mast_angle))
     
     return [(start_x, start_y), (end_x, end_y)]
+
+def compute_scanned_percentage(scanned_surface):
+    """Calculate the percentage of the scanned area."""
+    surface_array = pygame.surfarray.pixels_alpha(scanned_surface)
+    scanned_pixels = np.count_nonzero(surface_array > 0)  # Non-zero alpha pixels
+    total_pixels = surface_array.size
+    return (scanned_pixels / total_pixels) * 100

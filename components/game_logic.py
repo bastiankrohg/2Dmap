@@ -36,16 +36,17 @@ def update_rover_position(keys, rover_pos, rover_angle, path, odometer, mast_ang
     return rover_pos, rover_angle, path, odometer, mast_angle
 
 # HUD and Overlay Drawing Functions
-def draw_hud(screen, resources, obstacles, odometer):
-    """Display the HUD with resource count, obstacle count, and odometer."""
+def draw_hud(screen, resources, obstacles, odometer, scanned_percentage):
+    """Display the HUD with resource count, obstacle count, odometer, and scanned coverage."""
     resource_count = len(resources) if isinstance(resources, list) else 0
     obstacle_count = len(obstacles) if isinstance(obstacles, list) else 0
 
-    hud_surface = hud_font.render(
-        f"Resources: {resource_count} | Obstacles: {obstacle_count} | Odometer: {odometer:.2f} cm",
-        True,
-        (255, 255, 255),
+    hud_text = (
+        f"Resources: {resource_count} | Obstacles: {obstacle_count} | "
+        f"Odometer: {odometer:.2f} cm | Scanned: {scanned_percentage:.1f}%"
     )
+
+    hud_surface = hud_font.render(hud_text, True, (255, 255, 255))
     screen.blit(hud_surface, (10, 10))
 
 

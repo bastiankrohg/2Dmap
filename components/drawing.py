@@ -93,3 +93,26 @@ def draw_fov(screen, rover_pos, mast_angle, view_offset):
 
     # Blit the semi-transparent surface onto the main screen
     screen.blit(fov_surface, (0, 0))
+
+
+def update_scanned_area(scanned_surface, rover_pos, mast_angle, view_offset):
+    """Update the scanned area based on the current FoV."""
+    adjusted_rover_pos = (
+        rover_pos[0] - view_offset[0],
+        rover_pos[1] - view_offset[1],
+    )
+
+    # Define the FoV parameters
+    start_angle = math.radians(mast_angle - FOV_ANGLE // 2)
+    end_angle = math.radians(mast_angle + FOV_ANGLE // 2)
+    radius = FOV_DISTANCE
+
+    # Draw the scanned area on the surface
+    points = [adjusted_rover_pos]
+    for angle in range(int(mast_angle - FOV_ANGLE // 2), int(mast_angle + FOV_ANGLE // 2) + 1):
+        x = adjusted_rover_pos[0] + radius * math.cos(math.radians(angle))
+        y = adjusted_rover_pos[1] - radius * math.sin(math.radians(angle))
+        points.append((x, y))
+
+    # Draw the polygon to mark the scanned area
+    pygame.draw.polygon(scanned_surface, (100, 100, 100, 50), points) # R, G, B, Transparency
