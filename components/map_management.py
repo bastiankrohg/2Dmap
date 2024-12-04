@@ -20,40 +20,41 @@ def get_last_used_map():
             return data.get("last_used")
     return None
 
-def save_map(path, rover_pos, resources, obstacles, name=None):
-    """Saves the map to a file."""
-    if name is None:
-        #timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = "map.json"
-    else:
-        filename = name
+def save_map(path, rover_pos, resources, obstacles, rover_angle, mast_angle, name=None):
+    """
+    Save map data to a file.
 
-    filepath = os.path.join(MAPS_DIR, filename)
-
+    :param path: The path taken by the rover.
+    :param rover_pos: The current position of the rover.
+    :param resources: List of resource positions.
+    :param obstacles: List of obstacle line segments.
+    :param rover_angle: The current heading of the rover.
+    :param mast_angle: The current mast direction.
+    :param name: The name of the map file.
+    """
     map_data = {
         "path": path,
         "rover_pos": rover_pos,
         "resources": resources,
         "obstacles": obstacles,
+        "rover_angle": rover_angle,
+        "mast_angle": mast_angle,
     }
+    file_name = f"maps/{name or 'map.json'}"
+    try:
+        with open(file_name, "w") as file:
+            json.dump(map_data, file, indent=4)
+        print(f"[DEBUG] Map saved to {file_name}")
+    except Exception as e:
+        print(f"[ERROR] Failed to save map: {e}")
 
-    with open(filepath, "w") as f:
-        json.dump(map_data, f, indent=4)
-    print(f"[DEBUG] Map saved to {filepath}")
-
-    # Update the last-used map
-    save_last_used_map(filename)
-
-
-import os
-import json
 
 def load_map(map_name):
     """
     Load map data from a file.
 
     :param map_name: The name of the map to load.
-    :return: A dictionary containing map data (path, rover_pos, resources, obstacles).
+    :return: A dictionary containing map data (path, rover_pos, resources, obstacles, rover_angle, mast_angle).
     """
     file_path = os.path.join("maps", map_name)
     if not os.path.exists(file_path):
@@ -65,7 +66,7 @@ def load_map(map_name):
             data = json.load(file)
 
         # Ensure all required keys are present
-        required_keys = ["path", "rover_pos", "resources", "obstacles"]
+        required_keys = ["path", "rover_pos", "resources", "obstacles", "rover_angle", "mast_angle"]
         for key in required_keys:
             if key not in data:
                 print(f"[ERROR] Map file '{map_name}' is missing key: '{key}'.")
@@ -73,7 +74,9 @@ def load_map(map_name):
 
         # Debugging output
         print(f"[DEBUG] Map loaded successfully: {map_name}")
-        print(f"[DEBUG] rover_pos, resources, obstacles: ({data['rover_pos']}, {data['resources']}, {data['obstacles']})")
+        print(f"[DEBUG] rover_pos, rover_angle, mast_angle, resources, obstacles: "
+              f"({data['rover_pos']}, {data['rover_angle']}, {data['mast_angle']}, "
+              f"{data['resources']}, {data['obstacles']})")
 
         return data
 
@@ -83,7 +86,6 @@ def load_map(map_name):
     except Exception as e:
         print(f"[ERROR] Unexpected error while loading map '{map_name}': {e}")
         return None
-    
 
 def list_maps():
     files = [f for f in os.listdir(MAPS_DIR) if f.endswith(".json")]

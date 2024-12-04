@@ -40,7 +40,7 @@ def menu_screen():
     running = True
     while running:
         screen.fill(BACKGROUND_COLOR)
-        title = font.render("Main Menu", True, (255, 255, 255))
+        title = font.render("Rover Map", True, (255, 255, 255))
         screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 50))
 
         for i, option in enumerate(options):
@@ -63,45 +63,46 @@ def menu_screen():
                     if options[current_selection] == "Load Map":
                         if not show_full_list:
                             last_map = get_last_used_map()
-                            if isinstance(last_map, tuple):
-                                map_name = last_map[0]  # Extract the map name from the tuple
-                            else:
-                                map_name = last_map
                             if last_map:
                                 return last_map, False
                             else:
                                 show_full_list = True
                         else:
-                            # Logic to handle map list
-                            selected_map = list_maps()  # Add dropdown logic here
-                            return selected_map, False
+                            # Show a list of available maps
+                            available_maps = list_maps()
+                            if available_maps:
+                                selected_map = available_maps[0]  # Replace with dropdown logic if needed
+                                return selected_map, False
+                            else:
+                                print("[ERROR] No maps available.")
+                                return None, False
                     elif options[current_selection] == "Start New":
-                        return "default_map", True
+                        return "map.json", True
+                pygame.event.clear(pygame.KEYDOWN)
+
                     
 def game_loop(map_name=None):
     global rover_pos, rover_angle, mast_angle, mast_offset, path, odometer
     global resources, obstacles, show_resource_list, show_obstacle_list
 
     if map_name:
-        # Load the saved map
-        try:
-            loaded_data = load_map(map_name)
-            if isinstance(loaded_data, dict):
-                resources = loaded_data.get("resources", [])
-                obstacles = loaded_data.get("obstacles", [])
-                path = loaded_data.get("path", [])
-                rover_pos = loaded_data.get("rover_pos", [WIDTH // 2, HEIGHT // 2])
-                rover_angle = loaded_data.get("rover_angle", 0)
-                mast_angle = rover_angle
-                odometer = loaded_data.get("odometer", 0)
-            else:
-                print(f"[ERROR] Map file '{map_name}' is not formatted correctly.")
-                resources, obstacles, path = [], [], []
-                rover_pos, rover_angle, mast_angle = [WIDTH // 2, HEIGHT // 2], 0, 0
-                odometer = 0
-        except Exception as e:
-            print(f"Failed to load map '{map_name}': {e}")
-            resources, obstacles, path = [], [], []
+        if isinstance(map_name, list):  # Fix if map_name is mistakenly a list
+            map_name = map_name[0]
+
+        loaded_data = load_map(map_name)
+        if loaded_data:
+            # Extract the loaded data
+            path = loaded_data["path"]
+            rover_pos = loaded_data["rover_pos"]
+            resources = loaded_data["resources"]
+            obstacles = loaded_data["obstacles"]
+            rover_angle = loaded_data["rover_angle"]
+            mast_angle = loaded_data["mast_angle"]
+            mast_offset = mast_angle - rover_angle
+            odometer = 0
+        else:
+            print(f"[ERROR] Failed to load map '{map_name}'. Starting a new map.")
+            path, resources, obstacles = [], [], []
             rover_pos, rover_angle, mast_angle = [WIDTH // 2, HEIGHT // 2], 0, 0
             odometer = 0
 
@@ -122,12 +123,7 @@ def game_loop(map_name=None):
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                # Save map with the current map name
-                try:
-                    print(f"[DEBUG] rover_pos, resources, obstacles: {rover_pos, resources, obstacles}")
-                    save_map(path, rover_pos, resources, obstacles, map_name or "map.json")                
-                except Exception as e:
-                    print(f"Failed to save map: {e}")
+                save_map(path, rover_pos, resources, obstacles, rover_angle, mast_angle, map_name or "map.json")
                 running = False
 
             if event.type == pygame.KEYDOWN:
@@ -160,20 +156,21 @@ def game_loop(map_name=None):
         if show_obstacle_list:
             draw_overlay(screen, "Obstacle List", obstacles)
 
-        # Update the HUD
         draw_hud(screen, resources, obstacles, odometer)
-
         pygame.display.flip()
         clock.tick(30)
 
     pygame.quit()
     sys.exit()
 
+
 def main():
     """
     Main entry point for the game, showing the custom menu and starting the game loop.
     """
     map_name, is_new = menu_screen()
+    print("map_name: ", map_name)
+
     if is_new:
         game_loop()  # Start a new map
     else:
