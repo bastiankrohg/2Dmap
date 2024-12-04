@@ -23,8 +23,8 @@ def get_last_used_map():
 def save_map(path, rover_pos, resources, obstacles, name=None):
     """Saves the map to a file."""
     if name is None:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{timestamp}_map.json"
+        #timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = "map.json"
     else:
         filename = name
 
@@ -45,29 +45,44 @@ def save_map(path, rover_pos, resources, obstacles, name=None):
     save_last_used_map(filename)
 
 
-def load_map(filepath):
-    """Loads a map from a file."""
+import os
+import json
+
+def load_map(map_name):
+    """
+    Load map data from a file.
+
+    :param map_name: The name of the map to load.
+    :return: A dictionary containing map data (path, rover_pos, resources, obstacles).
+    """
+    file_path = os.path.join("maps", map_name)
+    if not os.path.exists(file_path):
+        print(f"[ERROR] Map file '{map_name}' not found.")
+        return None
+
     try:
-        with open(filepath, "r") as f:
-            data = json.load(f)
+        with open(file_path, "r") as file:
+            data = json.load(file)
 
-        # Validate loaded path
-        path = [
-            tuple(pos) for pos in data.get("path", [])
-            if isinstance(pos, list) and len(pos) == 2 and all(isinstance(coord, (int, float)) for coord in pos)
-        ]
+        # Ensure all required keys are present
+        required_keys = ["path", "rover_pos", "resources", "obstacles"]
+        for key in required_keys:
+            if key not in data:
+                print(f"[ERROR] Map file '{map_name}' is missing key: '{key}'.")
+                return None
 
-        rover_pos = data.get("rover_pos", [400, 400])
-        resources = data.get("resources", [])
-        obstacles = data.get("obstacles", [])
+        # Debugging output
+        print(f"[DEBUG] Map loaded successfully: {map_name}")
+        print(f"[DEBUG] rover_pos, resources, obstacles: ({data['rover_pos']}, {data['resources']}, {data['obstacles']})")
 
-        return path, rover_pos, resources, obstacles
-    except FileNotFoundError:
-        print(f"[ERROR] Map file '{filepath}' not found.")
-        return [], [400, 400], [], []
+        return data
+
     except json.JSONDecodeError as e:
-        print(f"[ERROR] Failed to decode map file '{filepath}': {e}")
-        return [], [400, 400], [], []
+        print(f"[ERROR] Map file '{map_name}' is not formatted correctly. Error: {e}")
+        return None
+    except Exception as e:
+        print(f"[ERROR] Unexpected error while loading map '{map_name}': {e}")
+        return None
     
 
 def list_maps():
