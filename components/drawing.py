@@ -57,3 +57,39 @@ def draw_obstacles(screen, obstacles, view_offset):
         adjusted_start = (int(obstacle[0][0] - view_offset[0]), int(obstacle[0][1] - view_offset[1]))
         adjusted_end = (int(obstacle[1][0] - view_offset[0]), int(obstacle[1][1] - view_offset[1]))
         pygame.draw.line(screen, (255, 0, 0), adjusted_start, adjusted_end, 3)
+        
+def draw_fov(screen, rover_pos, mast_angle, view_offset):
+    """Draw the circular segment field of view around the rover."""
+    adjusted_rover_pos = (
+        rover_pos[0] - view_offset[0],
+        rover_pos[1] - view_offset[1],
+    )
+
+    # Define the FoV parameters
+    start_angle = math.radians(mast_angle - FOV_ANGLE // 2)  # Start of the arc
+    end_angle = math.radians(mast_angle + FOV_ANGLE // 2)    # End of the arc
+    radius = FOV_DISTANCE
+
+    # Create a semi-transparent surface
+    fov_surface = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
+
+    # Draw the arc and fill the segment
+    arc_rect = pygame.Rect(
+        adjusted_rover_pos[0] - radius,
+        adjusted_rover_pos[1] - radius,
+        2 * radius,
+        2 * radius,
+    )
+
+    # Draw the filled circular segment (polygon approximation)
+    points = [adjusted_rover_pos]  # Start at the center
+    for angle in range(int(mast_angle - FOV_ANGLE // 2), int(mast_angle + FOV_ANGLE // 2) + 1):
+        x = adjusted_rover_pos[0] + radius * math.cos(math.radians(angle))
+        y = adjusted_rover_pos[1] - radius * math.sin(math.radians(angle))
+        points.append((x, y))
+
+    # Draw the filled polygon
+    pygame.draw.polygon(fov_surface, (255, 255, 0, 50), points)
+
+    # Blit the semi-transparent surface onto the main screen
+    screen.blit(fov_surface, (0, 0))

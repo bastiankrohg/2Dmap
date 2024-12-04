@@ -17,6 +17,11 @@ RESOURCE_DISTANCE = 15
 OBSTACLE_DISTANCE = 15
 OBSTACLE_LENGTH = 30
 
+# FOV Mast
+FOV_ANGLE = 90  # Field of view angle in degrees
+FOV_DISTANCE = 200  # Maximum distance for the field of view
+FOV_COLOR = (255, 255, 0, 100)  # Semi-transparent yellow
+
 # Fonts
 HUD_FONT_SIZE = 24
 MENU_FONT_SIZE = 36
