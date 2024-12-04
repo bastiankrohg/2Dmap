@@ -1,8 +1,8 @@
 import pygame
 import sys
 from components.map_management import save_map, load_map, get_last_used_map, list_maps
-from components.drawing import draw_grid, draw_rover, draw_path, draw_obstacles, draw_resources, draw_arrows, draw_hud
-from components.game_logic import update_rover_position, draw_overlay
+from components.drawing import draw_grid, draw_rover, draw_path, draw_obstacles, draw_resources, draw_arrows
+from components.game_logic import update_rover_position, draw_hud, draw_overlay
 from components.constants import WIDTH, HEIGHT, BACKGROUND_COLOR
 from components.utils import compute_resource_position, compute_obstacle_positions
 
