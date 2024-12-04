@@ -1,4 +1,4 @@
-# v8 - Drawing scanned zone
+# v8 - Drawing scanned zone, toggle on with S
 
 import pygame 
 import sys

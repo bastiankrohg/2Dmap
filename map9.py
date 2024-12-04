@@ -1,4 +1,4 @@
-# v9 - Fixed Dynamic Map and Scanned Zone with Toggle
+# v9.1 - Fixed Scanned Zone Tracing to Map Coordinates
 
 import pygame
 import sys
@@ -34,11 +34,17 @@ view_offset = [0, 0]
 dragging = False
 drag_start = None
 
+# Map surface dimensions (static)
+MAP_WIDTH, MAP_HEIGHT = 2000, 2000
+
 # Initialize pygame
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Rover Mapping Game - Fixed Dynamic View")
+pygame.display.set_caption("Rover Mapping Game - Fixed Scanned Zone")
 clock = pygame.time.Clock()
+
+# Create a full-size surface for the scanned area
+scanned_surface = pygame.Surface((MAP_WIDTH, MAP_HEIGHT), pygame.SRCALPHA)
 
 
 def menu_screen():
@@ -119,20 +125,24 @@ def game_loop(map_name=None):
     place_obstacle_pressed = False
     trace_scanned_area = False  # Toggle for tracing scanned areas
 
-    # Create a semi-transparent surface to mark scanned areas
-    scanned_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-
     while running:
         screen.fill(BACKGROUND_COLOR)
+
+        # Blit scanned_surface to the visible screen with offset
+        screen.blit(
+            scanned_surface,
+            (0, 0),
+            pygame.Rect(
+                view_offset[0], view_offset[1], WIDTH, HEIGHT
+            ),  # Only show the visible portion
+        )
+
         draw_grid(screen, [int(view_offset[0]), int(view_offset[1])])
         draw_path(screen, path, [int(view_offset[0]), int(view_offset[1])])
         draw_rover(screen, rover_pos, [int(view_offset[0]), int(view_offset[1])])
         draw_arrows(screen, rover_pos, rover_angle, mast_angle, [int(view_offset[0]), int(view_offset[1])])
         draw_resources(screen, resources, [int(view_offset[0]), int(view_offset[1])])
         draw_obstacles(screen, obstacles, [int(view_offset[0]), int(view_offset[1])])
-
-        # Apply scanned area overlay
-        screen.blit(scanned_surface, (0, 0))
 
         # Draw the field of view
         draw_fov(screen, rover_pos, mast_angle, [int(view_offset[0]), int(view_offset[1])])
@@ -184,9 +194,9 @@ def game_loop(map_name=None):
             keys, rover_pos, rover_angle, path, odometer, mast_angle
         )
 
-        # Update scanned area
+        # Update scanned area (static to map coordinates)
         if trace_scanned_area:
-            update_scanned_area(scanned_surface, rover_pos, mast_angle, [int(view_offset[0]), int(view_offset[1])])
+            update_scanned_area(scanned_surface, rover_pos, mast_angle, [0, 0])
 
         scanned_percentage = compute_scanned_percentage(scanned_surface)
 
