@@ -24,3 +24,6 @@ MENU_FONT_SIZE = 36
 # Map directory
 MAPS_DIR = "maps"
 os.makedirs(MAPS_DIR, exist_ok=True)
+
+# Rover
+ROVER_SPEED = 5  # Speed of the rover in pixels per frame
