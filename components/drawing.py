@@ -119,6 +119,6 @@ def update_scanned_area(scanned_surface, rover_pos, mast_angle, view_offset):
             pygame.draw.line(scanned_surface, (128, 128, 128, 50), (map_x, map_y), (end_x, end_y), 1)
 
     # Debugging output
-    print(f"Rover Global Position: {rover_pos}")
-    print(f"Adjusted Map Position: ({map_x}, {map_y})")
-    print(f"View Offset: {view_offset}")
+    # print(f"Rover Global Position: {rover_pos}")
+    # print(f"Adjusted Map Position: ({map_x}, {map_y})")
+    # print(f"View Offset: {view_offset}")
