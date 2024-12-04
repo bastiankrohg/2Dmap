@@ -108,10 +108,6 @@ def update_scanned_area(scanned_surface, rover_pos, mast_angle, view_offset):
     scan_radius = FOV_DISTANCE  # Radius of the scanned area
     angle_span = FOV_ANGLE      # Field of view in degrees
 
-    # Adjust for view offset
-    adjusted_x = map_x - int(view_offset[0])
-    adjusted_y = map_y - int(view_offset[1])
-
     # Create a mask for the scanned area
     for angle in range(-angle_span // 2, angle_span // 2 + 1):
         radians = math.radians(mast_angle + angle)
@@ -121,3 +117,8 @@ def update_scanned_area(scanned_surface, rover_pos, mast_angle, view_offset):
         # Draw on the scanned surface only if within bounds
         if 0 <= end_x < scanned_surface.get_width() and 0 <= end_y < scanned_surface.get_height():
             pygame.draw.line(scanned_surface, (128, 128, 128, 50), (map_x, map_y), (end_x, end_y), 1)
+
+    # Debugging output
+    print(f"Rover Global Position: {rover_pos}")
+    print(f"Adjusted Map Position: ({map_x}, {map_y})")
+    print(f"View Offset: {view_offset}")

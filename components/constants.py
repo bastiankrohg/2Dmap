@@ -5,8 +5,7 @@ WIDTH, HEIGHT = 800, 800
 GRID_SIZE = 20
 
 # Create a full-size surface for the scanned area
-# Size of the map to allow for negative coordinates
-MAP_SIZE = 2000 # For example
+MAP_SIZE = 800 # For example
 
 # Center the scanned_surface so it supports negative coordinates
 SCANNED_OFFSET = [MAP_SIZE // 2, MAP_SIZE // 2]
