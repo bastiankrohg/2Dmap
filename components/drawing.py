@@ -97,28 +97,52 @@ def draw_fov(screen, rover_pos, mast_angle, view_offset):
 
 def update_scanned_area(scanned_surface, rover_pos, mast_angle, view_offset):
     """
-    Update the scanned area on the global scanned_surface, constrained to the FoV,
-    and ensure alignment with the viewport using view_offset.
+    Update the scanned area on the scanned_surface based on the rover's position and mast angle,
+    aligned with the viewport and map coordinates.
     """
-    # Convert rover_pos to map-relative coordinates
-    map_x = int(rover_pos[0] + SCANNED_OFFSET[0])
-    map_y = int(rover_pos[1] + SCANNED_OFFSET[1])
+    # Convert rover_pos to viewport-relative coordinates
+    map_x = int(rover_pos[0])
+    map_y = int(rover_pos[1])
 
     # Scanned area parameters
-    scan_radius = FOV_DISTANCE  # Radius of the scanned area
-    angle_span = FOV_ANGLE      # Field of view in degrees
+    scan_radius = FOV_DISTANCE
+    angle_span = FOV_ANGLE
 
-    # Create a mask for the scanned area
+    # Adjust for the viewport offset
+    adjusted_x = map_x + view_offset[0]
+    adjusted_y = map_y + view_offset[1]
+
+    # Draw the scanned area within the FoV
     for angle in range(-angle_span // 2, angle_span // 2 + 1):
         radians = math.radians(mast_angle + angle)
-        end_x = map_x + int(scan_radius * math.cos(radians))
-        end_y = map_y - int(scan_radius * math.sin(radians))
+        end_x = adjusted_x + int(scan_radius * math.cos(radians))
+        end_y = adjusted_y - int(scan_radius * math.sin(radians))
 
-        # Draw on the scanned surface only if within bounds
+        # Ensure we stay within the bounds of the scanned surface
         if 0 <= end_x < scanned_surface.get_width() and 0 <= end_y < scanned_surface.get_height():
-            pygame.draw.line(scanned_surface, (128, 128, 128, 50), (map_x, map_y), (end_x, end_y), 1)
+            pygame.draw.line(scanned_surface, (128, 128, 128, 50), (adjusted_x, adjusted_y), (end_x, end_y), 1)
 
-    # Debugging output
-    print(f"Rover Global Position: {rover_pos}")
-    print(f"Adjusted Map Position: ({map_x}, {map_y})")
-    print(f"View Offset: {view_offset}")
+    return scanned_surface
+
+
+def update_viewport_offset(view_offset, rover_pos, buffer=100):
+    """
+    Update the viewport offset based on the rover's position.
+
+    :param view_offset: The current viewport offset [x, y].
+    :param rover_pos: The rover's global position [x, y].
+    :param buffer: The distance from the viewport edge before the viewport moves.
+    :return: The updated viewport offset.
+    """
+    # Ensure the viewport moves when the rover is near the edges
+    if rover_pos[0] < view_offset[0] + buffer:  # Left edge
+        view_offset[0] = rover_pos[0] - buffer
+    elif rover_pos[0] > view_offset[0] + WIDTH - buffer:  # Right edge
+        view_offset[0] = rover_pos[0] - WIDTH + buffer
+
+    if rover_pos[1] < view_offset[1] + buffer:  # Top edge
+        view_offset[1] = rover_pos[1] - buffer
+    elif rover_pos[1] > view_offset[1] + HEIGHT - buffer:  # Bottom edge
+        view_offset[1] = rover_pos[1] - HEIGHT + buffer
+
+    return view_offset

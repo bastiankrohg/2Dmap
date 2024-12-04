@@ -1,14 +1,25 @@
-# v6 - Dynamic window
+# map9.py - Rover Mapping Game with Scanned Zone Saving and Loading
+
 import pygame
 import sys
 from components.map_management import save_map, load_map, get_last_used_map, list_maps
-from components.drawing import draw_grid, draw_rover, draw_path, draw_obstacles, draw_resources, draw_arrows
+from components.drawing import (
+    draw_grid,
+    draw_path,
+    draw_rover,
+    draw_arrows,
+    draw_resources,
+    draw_obstacles,
+    draw_fov,
+    update_scanned_area,
+    update_viewport_offset,
+)
 from components.game_logic import update_rover_position, draw_hud, draw_overlay
-from components.constants import WIDTH, HEIGHT, BACKGROUND_COLOR
-from components.utils import compute_resource_position, compute_obstacle_positions
+from components.constants import WIDTH, HEIGHT, BACKGROUND_COLOR, LARGE_SCANNED_SIZE
+from components.utils import compute_resource_position, compute_obstacle_positions, compute_scanned_percentage
 
 # Global variables for game state
-rover_pos = [WIDTH // 2, HEIGHT // 2]
+rover_pos = [0, 0]
 rover_angle = 0
 mast_angle = 0
 mast_offset = 0
@@ -20,14 +31,18 @@ show_resource_list = False
 show_obstacle_list = False
 
 # New variables for dynamic view and dragging
-view_offset = [0, 0]
+view_offset = [-WIDTH // 2, -HEIGHT // 2]  # Start with the viewport centered on (0, 0)
 dragging = False
 drag_start = None
+
+# Initialize the larger scanning surface
+scanned_surface = pygame.Surface((LARGE_SCANNED_SIZE, LARGE_SCANNED_SIZE), pygame.SRCALPHA)
+SCANNED_OFFSET = [LARGE_SCANNED_SIZE // 2, LARGE_SCANNED_SIZE // 2]  # Center the scanning area
 
 # Initialize pygame
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Rover Mapping Game - Dynamic View")
+pygame.display.set_caption("Rover Mapping Game")
 clock = pygame.time.Clock()
 
 
@@ -85,8 +100,7 @@ def menu_screen():
 
 def game_loop(map_name=None):
     global rover_pos, rover_angle, mast_angle, mast_offset, path, odometer
-    global resources, obstacles, show_resource_list, show_obstacle_list
-    global view_offset, dragging, drag_start
+    global resources, obstacles, show_resource_list, show_obstacle_list, view_offset, scanned_surface
 
     if map_name:
         loaded_data = load_map(map_name)
@@ -99,6 +113,10 @@ def game_loop(map_name=None):
             mast_angle = loaded_data["mast_angle"]
             mast_offset = mast_angle - rover_angle
             odometer = 0
+
+            # Load scanned_surface if present
+            if "scanned_surface" in loaded_data:
+                scanned_surface = pygame.image.load(loaded_data["scanned_surface"]).convert_alpha()
         else:
             print(f"[ERROR] Failed to load map '{map_name}'. Starting a new map.")
             path, resources, obstacles = [], [], []
@@ -108,6 +126,7 @@ def game_loop(map_name=None):
     running = True
     place_resource_pressed = False
     place_obstacle_pressed = False
+    trace_scanned_area = False  # Toggle for tracing scanned areas
 
     while running:
         screen.fill(BACKGROUND_COLOR)
@@ -118,26 +137,43 @@ def game_loop(map_name=None):
         draw_resources(screen, resources, view_offset)
         draw_obstacles(screen, obstacles, view_offset)
 
+        view_offset = update_viewport_offset(view_offset, rover_pos)
+
+        # Update the scanned surface
+        if trace_scanned_area:
+            scanned_surface = update_scanned_area(scanned_surface, rover_pos, mast_angle, view_offset)
+
+
+        # Blit the scanned area to the visible screen
+        screen.blit(
+            scanned_surface,
+            (0, 0),
+            pygame.Rect(
+                view_offset[0],
+                view_offset[1],
+                WIDTH,
+                HEIGHT,
+            )
+        )
+        
+        # Draw the FoV
+        draw_fov(screen, rover_pos, mast_angle, view_offset)
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                save_map(path, rover_pos, resources, obstacles, rover_angle, mast_angle, map_name or "map.json")
+                save_map(
+                    path, rover_pos, resources, obstacles, rover_angle, mast_angle,
+                    map_name or "map.json", scanned_surface
+                )
                 running = False
-
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:  # Left mouse button for dragging
-                    dragging = True
-                    drag_start = pygame.mouse.get_pos()
-
-            if event.type == pygame.MOUSEBUTTONUP:
-                if event.button == 1:  # Stop dragging
-                    dragging = False
-                    drag_start = None
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_TAB:
                     show_resource_list = not show_resource_list
                 if event.key == pygame.K_SPACE:
                     show_obstacle_list = not show_obstacle_list
+                if event.key == pygame.K_s:  # Toggle scanning
+                    trace_scanned_area = not trace_scanned_area
                 if event.key == pygame.K_o and not place_resource_pressed:
                     resources.append(compute_resource_position(rover_pos, mast_angle))
                     place_resource_pressed = True
@@ -151,35 +187,47 @@ def game_loop(map_name=None):
                 if event.key == pygame.K_p:
                     place_obstacle_pressed = False
 
-        if dragging:
-            mouse_x, mouse_y = pygame.mouse.get_pos()
-            dx = mouse_x - drag_start[0]
-            dy = mouse_y - drag_start[1]
-            view_offset[0] += dx
-            view_offset[1] += dy
-            drag_start = (mouse_x, mouse_y)
-
+        # Update rover position
         keys = pygame.key.get_pressed()
         rover_pos, rover_angle, path, odometer, mast_angle = update_rover_position(
             keys, rover_pos, rover_angle, path, odometer, mast_angle
         )
 
-        # Auto-adjust view
-        if rover_pos[0] - view_offset[0] < 100:
-            view_offset[0] -= 10
-        if rover_pos[0] - view_offset[0] > WIDTH - 100:
-            view_offset[0] += 10
-        if rover_pos[1] - view_offset[1] < 100:
-            view_offset[1] -= 10
-        if rover_pos[1] - view_offset[1] > HEIGHT - 100:
-            view_offset[1] += 10
+        # Adjust view_offset if the rover moves close to the edges of the viewport
+        viewport_buffer = WIDTH // 4  # Buffer distance before adjusting the viewport
 
+        if rover_pos[0] - view_offset[0] < viewport_buffer:  # Left boundary
+            view_offset[0] = max(0, view_offset[0] - WIDTH // 10)
+        elif rover_pos[0] - view_offset[0] > WIDTH - viewport_buffer:  # Right boundary
+            view_offset[0] = min(
+                scanned_surface.get_width() - WIDTH,
+                view_offset[0] + WIDTH // 10,
+            )
+
+        if rover_pos[1] - view_offset[1] < viewport_buffer:  # Top boundary
+            view_offset[1] = max(0, view_offset[1] - HEIGHT // 10)
+        elif rover_pos[1] - view_offset[1] > HEIGHT - viewport_buffer:  # Bottom boundary
+            view_offset[1] = min(
+                scanned_surface.get_height() - HEIGHT,
+                view_offset[1] + HEIGHT // 10,
+            )
+
+
+        # Calculate scanned percentage
+        scanned_percentage = compute_scanned_percentage(scanned_surface)
+
+        # Draw lists
         if show_resource_list:
             draw_overlay(screen, "Resource List", resources)
         if show_obstacle_list:
             draw_overlay(screen, "Obstacle List", obstacles)
 
-        draw_hud(screen, resources, obstacles, odometer)
+        draw_hud(screen, resources, obstacles, odometer, scanned_percentage, rover_pos)
+
+        print(f"Rover Global Position: {rover_pos}")
+        print(f"Viewport Offset: {view_offset}")
+
+        # Update display
         pygame.display.flip()
         clock.tick(30)
 

@@ -65,6 +65,7 @@ def main(map_name, save_enabled):
                     if event.type == pygame.QUIT:
                         print("[DEBUG] Quit event detected.")
                         if auto_save:
+                            print(f"[DEBUG] rover_pos, resources, obstacles: {rover_pos, resources, obstacles}")
                             save_map(path, rover_pos, resources, obstacles, name=map_name)
                         running = False
 

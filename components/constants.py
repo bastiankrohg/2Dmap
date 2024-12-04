@@ -6,9 +6,7 @@ GRID_SIZE = 20
 
 # Create a full-size surface for the scanned area
 MAP_SIZE = 800 # For example
-
-# Center the scanned_surface so it supports negative coordinates
-SCANNED_OFFSET = [MAP_SIZE // 2, MAP_SIZE // 2]
+LARGE_SCANNED_SIZE = MAP_SIZE * 3  # Example: 3x the initial MAP_SIZE
 
 # Colors
 ROVER_COLOR = (0, 255, 0)
