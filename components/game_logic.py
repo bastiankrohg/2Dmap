@@ -36,19 +36,18 @@ def update_rover_position(keys, rover_pos, rover_angle, path, odometer, mast_ang
     return rover_pos, rover_angle, path, odometer, mast_angle
 
 # HUD and Overlay Drawing Functions
-def draw_hud(screen, resources, obstacles, odometer, scanned_percentage):
-    """Display the HUD with resource count, obstacle count, odometer, and scanned coverage."""
+def draw_hud(screen, resources, obstacles, odometer, scanned_percentage, rover_pos):
+    """Display the HUD with resource count, obstacle count, odometer, scanned percentage, and rover position."""
     resource_count = len(resources) if isinstance(resources, list) else 0
     obstacle_count = len(obstacles) if isinstance(obstacles, list) else 0
 
-    hud_text = (
-        f"Resources: {resource_count} | Obstacles: {obstacle_count} | "
-        f"Odometer: {odometer:.2f} cm | Scanned: {scanned_percentage:.1f}%"
+    # Render the HUD text
+    hud_surface = pygame.font.Font(None, 24).render(
+        f"Resources: {resource_count} | Obstacles: {obstacle_count} | Odometer: {odometer:.2f} cm | Scanned: {scanned_percentage:.1f}% | Pos: ({int(rover_pos[0])}, {int(rover_pos[1])})",
+        True,
+        (255, 255, 255),
     )
-
-    hud_surface = hud_font.render(hud_text, True, (255, 255, 255))
     screen.blit(hud_surface, (10, 10))
-
 
 def draw_overlay(screen, title, items):
     """Draw an overlay list of items with a title."""

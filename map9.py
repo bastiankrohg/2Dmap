@@ -14,11 +14,12 @@ from components.drawing import (
     update_scanned_area,
 )
 from components.game_logic import update_rover_position, draw_hud, draw_overlay
-from components.constants import WIDTH, HEIGHT, BACKGROUND_COLOR
+from components.constants import WIDTH, HEIGHT, BACKGROUND_COLOR, SCANNED_OFFSET, MAP_SIZE
 from components.utils import compute_resource_position, compute_obstacle_positions, compute_scanned_percentage
 
 # Global variables for game state
-rover_pos = [WIDTH // 2, HEIGHT // 2]
+# rover_pos = [WIDTH // 2, HEIGHT // 2]
+rover_pos = [0, 0]
 rover_angle = 0
 mast_angle = 0
 mast_offset = 0
@@ -43,9 +44,12 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Rover Mapping Game - Fixed Scanned Zone")
 clock = pygame.time.Clock()
 
-# Create a full-size surface for the scanned area
-scanned_surface = pygame.Surface((MAP_WIDTH, MAP_HEIGHT), pygame.SRCALPHA)
+# Create the expanded scanned_surface
+scanned_surface = pygame.Surface((MAP_SIZE, MAP_SIZE), pygame.SRCALPHA)
 
+# In game_loop, after initializing the scanned_surface
+print(f"Scanned surface size: {scanned_surface.get_width()}x{scanned_surface.get_height()}")
+print(f"Scanned offset: {SCANNED_OFFSET}")
 
 def menu_screen():
     """Display the main menu and return the user's selection."""
@@ -128,14 +132,16 @@ def game_loop(map_name=None):
     while running:
         screen.fill(BACKGROUND_COLOR)
 
-        # Blit scanned_surface to the visible screen with offset
-        screen.blit(
-            scanned_surface,
-            (0, 0),
-            pygame.Rect(
-                view_offset[0], view_offset[1], WIDTH, HEIGHT
-            ),  # Only show the visible portion
+        # Calculate the blitting area based on the viewport and SCANNED_OFFSET
+        blit_area = pygame.Rect(
+            SCANNED_OFFSET[0] + view_offset[0],
+            SCANNED_OFFSET[1] + view_offset[1],
+            WIDTH,
+            HEIGHT,
         )
+        # Blit the appropriate portion of the scanned surface onto the main screen
+        screen.blit(scanned_surface, (0, 0), blit_area)
+
 
         draw_grid(screen, [int(view_offset[0]), int(view_offset[1])])
         draw_path(screen, path, [int(view_offset[0]), int(view_offset[1])])
@@ -196,21 +202,21 @@ def game_loop(map_name=None):
 
         # Update scanned area (static to map coordinates)
         if trace_scanned_area:
-            update_scanned_area(scanned_surface, rover_pos, mast_angle, [0, 0])
-
+            update_scanned_area(scanned_surface, rover_pos, mast_angle, view_offset)
+        
         scanned_percentage = compute_scanned_percentage(scanned_surface)
 
         # Dynamic viewport adjustment
         margin = 100
-        if rover_pos[0] - view_offset[0] < margin:
-            view_offset[0] = rover_pos[0] - margin
-        elif rover_pos[0] - view_offset[0] > WIDTH - margin:
-            view_offset[0] = rover_pos[0] - (WIDTH - margin)
-
-        if rover_pos[1] - view_offset[1] < margin:
-            view_offset[1] = rover_pos[1] - margin
-        elif rover_pos[1] - view_offset[1] > HEIGHT - margin:
-            view_offset[1] = rover_pos[1] - (HEIGHT - margin)
+        # Adjust view_offset dynamically based on rover's position
+        if rover_pos[0] - view_offset[0] < WIDTH // 4:  # Left edge
+            view_offset[0] = rover_pos[0] - WIDTH // 4
+        if rover_pos[1] - view_offset[1] < HEIGHT // 4:  # Top edge
+            view_offset[1] = rover_pos[1] - HEIGHT // 4
+        if rover_pos[0] - view_offset[0] > 3 * WIDTH // 4:  # Right edge
+            view_offset[0] = rover_pos[0] - 3 * WIDTH // 4
+        if rover_pos[1] - view_offset[1] > 3 * HEIGHT // 4:  # Bottom edge
+            view_offset[1] = rover_pos[1] - 3 * HEIGHT // 4
 
         # Draw overlays
         if show_resource_list:
@@ -218,7 +224,13 @@ def game_loop(map_name=None):
         if show_obstacle_list:
             draw_overlay(screen, "Obstacle List", obstacles)
 
-        draw_hud(screen, resources, obstacles, odometer, scanned_percentage)
+        draw_hud(screen, resources, obstacles, odometer, scanned_percentage, rover_pos)  
+
+        # print(f"Rover Global Position: {rover_pos}")
+        # print(f"View Offset: {view_offset}")
+        # print(f"SCANNED_OFFSET: {SCANNED_OFFSET}")
+        # print(f"Blitting Area: {blit_area}")
+
         pygame.display.flip()
         clock.tick(30)
 

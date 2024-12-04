@@ -96,23 +96,28 @@ def draw_fov(screen, rover_pos, mast_angle, view_offset):
 
 
 def update_scanned_area(scanned_surface, rover_pos, mast_angle, view_offset):
-    """Update the scanned area based on the current FoV."""
-    adjusted_rover_pos = (
-        rover_pos[0] - view_offset[0],
-        rover_pos[1] - view_offset[1],
-    )
+    """
+    Update the scanned area on the global scanned_surface, constrained to the FoV,
+    and ensure alignment with the viewport using view_offset.
+    """
+    # Convert rover_pos to map-relative coordinates
+    map_x = int(rover_pos[0] + SCANNED_OFFSET[0])
+    map_y = int(rover_pos[1] + SCANNED_OFFSET[1])
 
-    # Define the FoV parameters
-    start_angle = math.radians(mast_angle - FOV_ANGLE // 2)
-    end_angle = math.radians(mast_angle + FOV_ANGLE // 2)
-    radius = FOV_DISTANCE
+    # Scanned area parameters
+    scan_radius = FOV_DISTANCE  # Radius of the scanned area
+    angle_span = FOV_ANGLE      # Field of view in degrees
 
-    # Draw the scanned area on the surface
-    points = [adjusted_rover_pos]
-    for angle in range(int(mast_angle - FOV_ANGLE // 2), int(mast_angle + FOV_ANGLE // 2) + 1):
-        x = adjusted_rover_pos[0] + radius * math.cos(math.radians(angle))
-        y = adjusted_rover_pos[1] - radius * math.sin(math.radians(angle))
-        points.append((x, y))
+    # Adjust for view offset
+    adjusted_x = map_x - int(view_offset[0])
+    adjusted_y = map_y - int(view_offset[1])
 
-    # Draw the polygon to mark the scanned area
-    pygame.draw.polygon(scanned_surface, (100, 100, 100, 50), points) # R, G, B, Transparency
+    # Create a mask for the scanned area
+    for angle in range(-angle_span // 2, angle_span // 2 + 1):
+        radians = math.radians(mast_angle + angle)
+        end_x = map_x + int(scan_radius * math.cos(radians))
+        end_y = map_y - int(scan_radius * math.sin(radians))
+
+        # Draw on the scanned surface only if within bounds
+        if 0 <= end_x < scanned_surface.get_width() and 0 <= end_y < scanned_surface.get_height():
+            pygame.draw.line(scanned_surface, (128, 128, 128, 50), (map_x, map_y), (end_x, end_y), 1)

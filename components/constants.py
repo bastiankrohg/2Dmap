@@ -4,6 +4,13 @@ import os
 WIDTH, HEIGHT = 800, 800
 GRID_SIZE = 20
 
+# Create a full-size surface for the scanned area
+# Size of the map to allow for negative coordinates
+MAP_SIZE = 2000 # For example
+
+# Center the scanned_surface so it supports negative coordinates
+SCANNED_OFFSET = [MAP_SIZE // 2, MAP_SIZE // 2]
+
 # Colors
 ROVER_COLOR = (0, 255, 0)
 MAST_COLOR = (0, 0, 255)
