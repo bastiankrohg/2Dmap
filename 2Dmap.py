@@ -4,125 +4,152 @@ import pygame
 from concurrent import futures
 from rover_protos import mars_rover_pb2, mars_rover_pb2_grpc
 from components.map_management import save_map, load_map, get_last_used_map
-from components.drawing import (
-    draw_grid, draw_path, draw_rover, draw_fov, update_scanned_area
-)
+from components.drawing import draw_grid, draw_path, draw_rover, draw_fov, update_scanned_area
 from components.game_logic import update_rover_position, draw_hud
-from components.constants import WIDTH, HEIGHT, BACKGROUND_COLOR, MAP_SIZE
+from components.constants import WIDTH, HEIGHT, BACKGROUND_COLOR, MAP_SIZE, SCANNED_OFFSET
 from components.utils import compute_resource_position, compute_obstacle_positions
 
 class MappingServer(mars_rover_pb2_grpc.RoverServiceServicer):
-    def __init__(self, headless=False):
-        self.headless = headless
-        self.rover_pos = [0, 0]
+    def __init__(self):
+        self.rover_pos = [WIDTH // 2, HEIGHT // 2]
         self.rover_angle = 0
         self.mast_angle = 0
-        self.mast_offset = 0
         self.path = []
-        self.odometer = 0
-        self.view_offset = [-WIDTH // 2, -HEIGHT // 2]
+        self.trace_scanned_area = False
         self.resources = []
         self.obstacles = []
-        self.scanned_surface = pygame.Surface((MAP_SIZE, MAP_SIZE), pygame.SRCALPHA)
-        self.trace_scanned_area = True
-
-        if not self.headless:
-            pygame.init()
-            self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
-            pygame.display.set_caption("Rover Mapping")
-            self.clock = pygame.time.Clock()
+        print("[DEBUG] MappingServer initialized.")
 
     def DriveForward(self, request, context):
-        self._update_rover_position(speed=request.speed, forward=True)
-        return mars_rover_pb2.CommandResponse(success=True, message="Moved forward")
+        self.rover_pos[1] -= request.speed
+        self._update_path()
+        return mars_rover_pb2.CommandResponse(success=True, message="Moved forward.")
 
     def Reverse(self, request, context):
-        self._update_rover_position(speed=request.speed, forward=False)
-        return mars_rover_pb2.CommandResponse(success=True, message="Moved backward")
+        self.rover_pos[1] += request.speed
+        self._update_path()
+        return mars_rover_pb2.CommandResponse(success=True, message="Reversed.")
 
     def TurnLeft(self, request, context):
-        self.rover_angle = (self.rover_angle + request.angle) % 360
-        return mars_rover_pb2.CommandResponse(success=True, message="Turned left")
+        angle = request.angle
+        print(f"[DEBUG] Received TurnLeft command with angle: {angle}")
+        self.rover_angle -= angle  # Rotate counter-clockwise
+        return mars_rover_pb2.CommandResponse(success=True, message=f"Turning left by {angle} degrees")
 
     def TurnRight(self, request, context):
-        self.rover_angle = (self.rover_angle - request.angle) % 360
-        return mars_rover_pb2.CommandResponse(success=True, message="Turned right")
+        angle = request.angle
+        print(f"[DEBUG] Received TurnRight command with angle: {angle}")
+        self.rover_angle += angle  # Rotate clockwise
+        return mars_rover_pb2.CommandResponse(success=True, message=f"Turning right by {angle} degrees")
+
+    def StopMovement(self, request, context):
+        return mars_rover_pb2.CommandResponse(success=True, message="Stopped.")
 
     def RotatePeriscope(self, request, context):
-        self.mast_angle = (self.mast_angle + request.angle) % 360
-        return mars_rover_pb2.CommandResponse(success=True, message="Periscope rotated")
+        angle = request.angle
+        print(f"[DEBUG] Received RotatePeriscope command with angle: {angle}")
+        self.mast_angle = angle  # Update the mast angle
+        return mars_rover_pb2.CommandResponse(success=True, message=f"Mast rotated to {angle} degrees")
+
+    def ControlHeadlights(self, request, context):
+        return mars_rover_pb2.CommandResponse(success=True, message="Headlights toggled.")
+
+    def ControlWheelLEDs(self, request, context):
+        return mars_rover_pb2.CommandResponse(success=True, message="Wheel LEDs toggled.")
 
     def PlaceResource(self, request, context):
-        resource_pos = compute_resource_position(self.rover_pos, self.mast_angle, request.distance)
+        print("[DEBUG] Received PlaceResource command")
+        distance = request.distance or 0
+        resource_pos = compute_resource_position(self.rover_pos, self.mast_angle, distance)
         self.resources.append(resource_pos)
         return mars_rover_pb2.CommandResponse(success=True, message="Resource placed")
 
     def PlaceObstacle(self, request, context):
-        obstacle_pos = compute_obstacle_positions(self.rover_pos, self.mast_angle, request.distance)
+        print("[DEBUG] Received PlaceObstacle command")
+        distance = request.distance or 0
+        obstacle_pos = compute_obstacle_positions(self.rover_pos, self.mast_angle, distance)
         self.obstacles.append(obstacle_pos)
         return mars_rover_pb2.CommandResponse(success=True, message="Obstacle placed")
 
-    def StopMovement(self, request, context):
-        return mars_rover_pb2.CommandResponse(success=True, message="Movement stopped")
+    def _update_path(self):
+        self.path.append(self.rover_pos[:])
 
-    def _update_rover_position(self, speed, forward=True):
-        dx = speed * (1 if forward else -1) * pygame.math.Vector2(1, 0).rotate(self.rover_angle).x
-        dy = speed * (1 if forward else -1) * pygame.math.Vector2(1, 0).rotate(self.rover_angle).y
-        self.rover_pos[0] += dx
-        self.rover_pos[1] += dy
-        self.path.append(tuple(self.rover_pos))
 
-    def game_loop(self):
-        running = True
-        while running:
-            if not self.headless:
-                self.screen.fill(BACKGROUND_COLOR)
-                draw_grid(self.screen, self.view_offset)
-                draw_path(self.screen, self.path, self.view_offset)
-                draw_rover(self.screen, self.rover_pos, self.view_offset)
-                draw_fov(self.screen, self.rover_pos, self.mast_angle, self.view_offset)
+def game_loop(server, scanned_surface, args):
+    pygame.init()
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("Rover Mapping - gRPC Controlled")
+    clock = pygame.time.Clock()
 
-                # Update scanned area
-                if self.trace_scanned_area:
-                    update_scanned_area(self.scanned_surface, self.rover_pos, self.mast_angle, self.view_offset)
+    view_offset = [-WIDTH // 2, -HEIGHT // 2]
 
-                # Blit the scanned area
-                self.screen.blit(
-                    self.scanned_surface,
-                    (0, 0),
-                    pygame.Rect(
-                        self.view_offset[0],
-                        self.view_offset[1],
-                        WIDTH,
-                        HEIGHT,
-                    ),
-                )
+    while True:
+        screen.fill(BACKGROUND_COLOR)
+        draw_grid(screen, view_offset)
+        draw_path(screen, server.path, view_offset)
+        draw_rover(screen, server.rover_pos, view_offset)
+        draw_fov(screen, server.rover_pos, server.mast_angle, view_offset)
 
-                draw_hud(self.screen, self.resources, self.obstacles, self.odometer, 0, self.rover_pos)
-                pygame.display.flip()
-                self.clock.tick(30)
+        if server.trace_scanned_area:
+            update_scanned_area(scanned_surface, server.rover_pos, server.mast_angle, view_offset)
 
-            # Exit condition for headless mode
-            if self.headless:
-                break
+        screen.blit(
+            scanned_surface,
+            (0, 0),
+            pygame.Rect(
+                view_offset[0] + SCANNED_OFFSET[0],
+                view_offset[1] + SCANNED_OFFSET[1],
+                WIDTH,
+                HEIGHT,
+            ),
+        )
 
-    def serve(self, server_address="localhost:50052"):
-        server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-        mars_rover_pb2_grpc.add_RoverServiceServicer_to_server(self, server)
-        server.add_insecure_port(server_address)
-        print(f"[DEBUG] gRPC Mapping Server running on {server_address}")
-        server.start()
-        self.game_loop()
-        server.wait_for_termination()
+        # Adjust view offset
+        if server.rover_pos[0] - view_offset[0] < WIDTH // 4:
+            view_offset[0] -= WIDTH // 10
+        elif server.rover_pos[0] - view_offset[0] > 3 * WIDTH // 4:
+            view_offset[0] += WIDTH // 10
+        if server.rover_pos[1] - view_offset[1] < HEIGHT // 4:
+            view_offset[1] -= HEIGHT // 10
+        elif server.rover_pos[1] - view_offset[1] > 3 * HEIGHT // 4:
+            view_offset[1] += HEIGHT // 10
+
+        draw_hud(screen, server.resources, server.obstacles, len(server.path), 0, server.rover_pos)
+        pygame.display.flip()
+        clock.tick(30)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="2D Rover Mapping with gRPC")
-    parser.add_argument("--headless", action="store_true", help="Run without GUI")
+    parser = argparse.ArgumentParser(description="Rover Mapping with gRPC")
+    parser.add_argument("--load-last", action="store_true", help="Load the last saved map.")
+    parser.add_argument("--new-map", action="store_true", help="Start a new map.")
+    parser.add_argument("--server", type=str, default="localhost:50051", help="Address of the gRPC server.")
     args = parser.parse_args()
 
-    mapping_server = MappingServer(headless=args.headless)
-    mapping_server.serve()
+    # Initialize gRPC server
+    server = MappingServer()
+    grpc_server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    mars_rover_pb2_grpc.add_RoverServiceServicer_to_server(server, grpc_server)
+    grpc_server.add_insecure_port(args.server)
+    grpc_server.start()
+
+    # Setup map
+    scanned_surface = pygame.Surface((MAP_SIZE, MAP_SIZE), pygame.SRCALPHA)
+    if args.load_last:
+        map_name = get_last_used_map()
+        if map_name:
+            loaded_data = load_map(map_name)
+            if loaded_data:
+                server.path = loaded_data["path"]
+                server.rover_pos = loaded_data["rover_pos"]
+                scanned_surface = pygame.image.load(loaded_data["scanned_surface"]).convert_alpha()
+    elif args.new_map:
+        map_name = "new_map.json"
+    else:
+        print("[ERROR] Please specify --load-last or --new-map.")
+        return
+
+    game_loop(server, scanned_surface, args)
 
 
 if __name__ == "__main__":
