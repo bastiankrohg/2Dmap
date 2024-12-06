@@ -1,11 +1,12 @@
 import argparse
 import grpc
 import pygame
+import math
 from concurrent import futures
 from rover_protos import mars_rover_pb2, mars_rover_pb2_grpc
 from components.map_management import save_map, load_map, get_last_used_map
 from components.drawing import draw_grid, draw_path, draw_rover, draw_fov, update_scanned_area
-from components.game_logic import update_rover_position, draw_hud
+from components.game_logic import update_rover_position_grpc, draw_hud
 from components.constants import WIDTH, HEIGHT, BACKGROUND_COLOR, MAP_SIZE, SCANNED_OFFSET
 from components.utils import compute_resource_position, compute_obstacle_positions
 
@@ -18,60 +19,95 @@ class MappingServer(mars_rover_pb2_grpc.RoverServiceServicer):
         self.trace_scanned_area = False
         self.resources = []
         self.obstacles = []
+        self.command = None  # New attribute to store the last command
         print("[DEBUG] MappingServer initialized.")
 
     def DriveForward(self, request, context):
-        self.rover_pos[1] -= request.speed
+        self.command = "DriveForward"  # Store the command
+        speed = request.speed
+        print(f"[DEBUG] Command: DriveForward | Speed: {speed}")
+        # Move forward based on the current angle
+        self.rover_pos[0] += speed * math.cos(math.radians(self.rover_angle))
+        self.rover_pos[1] -= speed * math.sin(math.radians(self.rover_angle))
         self._update_path()
-        return mars_rover_pb2.CommandResponse(success=True, message="Moved forward.")
+        return mars_rover_pb2.CommandResponse(success=True, message=f"Moved forward by {speed} units.")
 
     def Reverse(self, request, context):
-        self.rover_pos[1] += request.speed
+        self.command = "Reverse"  # Store the command
+        speed = request.speed
+        print(f"[DEBUG] Command: Reverse | Speed: {speed}")
+        # Move backward based on the current angle
+        self.rover_pos[0] -= speed * math.cos(math.radians(self.rover_angle))
+        self.rover_pos[1] += speed * math.sin(math.radians(self.rover_angle))
         self._update_path()
-        return mars_rover_pb2.CommandResponse(success=True, message="Reversed.")
+        return mars_rover_pb2.CommandResponse(success=True, message=f"Reversed by {speed} units.")
 
     def TurnLeft(self, request, context):
+        self.command = "TurnLeft"  # Store the command
         angle = request.angle
         print(f"[DEBUG] Received TurnLeft command with angle: {angle}")
-        self.rover_angle -= angle  # Rotate counter-clockwise
+        if self.rover_pos[1] != self.previous_y:  # Moving forward or backward
+            self.rover_angle -= angle  # Rotate counter-clockwise while moving
+            self.rover_pos[0] -= int(10 * angle)  # Adjust x-position based on angle
+        else:  # Stationary rotation
+            self.rover_angle -= angle  # Rotate counter-clockwise
+        self._update_path()
         return mars_rover_pb2.CommandResponse(success=True, message=f"Turning left by {angle} degrees")
 
     def TurnRight(self, request, context):
+        self.command = "TurnRight"  # Store the command
         angle = request.angle
         print(f"[DEBUG] Received TurnRight command with angle: {angle}")
-        self.rover_angle += angle  # Rotate clockwise
+        if self.rover_pos[1] != self.previous_y:  # Moving forward or backward
+            self.rover_angle += angle  # Rotate clockwise while moving
+            self.rover_pos[0] += int(10 * angle)  # Adjust x-position based on angle
+        else:  # Stationary rotation
+            self.rover_angle += angle  # Rotate clockwise
+        self._update_path()
         return mars_rover_pb2.CommandResponse(success=True, message=f"Turning right by {angle} degrees")
 
+    def RotateOnSpot(self, request, context):
+        angle = request.angle
+        print(f"[DEBUG] Received RotateOnSpot command with angle: {angle}")
+        self.rover_angle += angle  # Only update the angle for stationary rotation
+        return mars_rover_pb2.CommandResponse(success=True, message=f"Rotated on spot by {angle} degrees")
+        
     def StopMovement(self, request, context):
-        return mars_rover_pb2.CommandResponse(success=True, message="Stopped.")
+        print("[DEBUG] Command: StopMovement")
+        return mars_rover_pb2.CommandResponse(success=True, message="Stopped movement.")
 
     def RotatePeriscope(self, request, context):
         angle = request.angle
-        print(f"[DEBUG] Received RotatePeriscope command with angle: {angle}")
-        self.mast_angle = angle  # Update the mast angle
-        return mars_rover_pb2.CommandResponse(success=True, message=f"Mast rotated to {angle} degrees")
+        print(f"[DEBUG] Command: RotatePeriscope | Angle: {angle}")
+        self.mast_angle = angle
+        return mars_rover_pb2.CommandResponse(success=True, message=f"Mast rotated to {angle} degrees.")
 
     def ControlHeadlights(self, request, context):
-        return mars_rover_pb2.CommandResponse(success=True, message="Headlights toggled.")
+        print("[DEBUG] Command: ControlHeadlights")
+        return mars_rover_pb2.CommandResponse(success=True, message="Toggled headlights.")
 
     def ControlWheelLEDs(self, request, context):
-        return mars_rover_pb2.CommandResponse(success=True, message="Wheel LEDs toggled.")
+        print("[DEBUG] Command: ControlWheelLEDs")
+        return mars_rover_pb2.CommandResponse(success=True, message="Toggled wheel LEDs.")
 
     def PlaceResource(self, request, context):
-        print("[DEBUG] Received PlaceResource command")
+        print("[DEBUG] Command: PlaceResource")
         distance = request.distance or 0
         resource_pos = compute_resource_position(self.rover_pos, self.mast_angle, distance)
+        print(f"[DEBUG] Resource placed at {resource_pos} with distance {distance}")
         self.resources.append(resource_pos)
-        return mars_rover_pb2.CommandResponse(success=True, message="Resource placed")
+        return mars_rover_pb2.CommandResponse(success=True, message="Resource placed.")
 
     def PlaceObstacle(self, request, context):
-        print("[DEBUG] Received PlaceObstacle command")
+        print("[DEBUG] Command: PlaceObstacle")
         distance = request.distance or 0
         obstacle_pos = compute_obstacle_positions(self.rover_pos, self.mast_angle, distance)
+        print(f"[DEBUG] Obstacle placed at {obstacle_pos} with distance {distance}")
         self.obstacles.append(obstacle_pos)
-        return mars_rover_pb2.CommandResponse(success=True, message="Obstacle placed")
+        return mars_rover_pb2.CommandResponse(success=True, message="Obstacle placed.")
 
     def _update_path(self):
+        print(f"[DEBUG] Updating path. Current Position: {self.rover_pos}")
         self.path.append(self.rover_pos[:])
 
 
@@ -104,6 +140,18 @@ def game_loop(server, scanned_surface, args):
             ),
         )
 
+        # Handle gRPC commands to update the rover
+        if server.command and server.command != "StopMovement":
+            print(f"[DEBUG] Processing command: {server.command}")
+
+        server.rover_pos, server.rover_angle, server.path, _, server.mast_angle = update_rover_position_grpc(
+            server.command or "StopMovement",  # Use StopMovement as a fallback if no command
+            server.rover_pos,
+            server.rover_angle,
+            server.path,
+            len(server.path),
+            server.mast_angle
+        )
         # Adjust view offset
         if server.rover_pos[0] - view_offset[0] < WIDTH // 4:
             view_offset[0] -= WIDTH // 10
@@ -114,6 +162,7 @@ def game_loop(server, scanned_surface, args):
         elif server.rover_pos[1] - view_offset[1] > 3 * HEIGHT // 4:
             view_offset[1] += HEIGHT // 10
 
+        
         draw_hud(screen, server.resources, server.obstacles, len(server.path), 0, server.rover_pos)
         pygame.display.flip()
         clock.tick(30)

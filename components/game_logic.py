@@ -41,7 +41,8 @@ def update_rover_position_grpc(
     """
     Update the rover's position and angle based on received gRPC commands.
     """
-    print(f"[DEBUG] Executing command: {command}")
+    if command and command != "StopMovement":
+        print(f"[DEBUG] Executing command: {command}")
 
     move_speed = 5  # Movement step size
     turn_speed = 15  # Rotation step size
