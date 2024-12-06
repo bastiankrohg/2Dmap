@@ -35,6 +35,45 @@ def update_rover_position(keys, rover_pos, rover_angle, path, odometer, mast_ang
         mast_angle -= 5
     return rover_pos, rover_angle, path, odometer, mast_angle
 
+def update_rover_position_grpc(
+    command, rover_pos, rover_angle, path, odometer, mast_angle
+):
+    """
+    Update the rover's position and angle based on received gRPC commands.
+    """
+    print(f"[DEBUG] Executing command: {command}")
+
+    move_speed = 5  # Movement step size
+    turn_speed = 15  # Rotation step size
+
+    if command == "DriveForward":
+        rover_pos[1] -= move_speed
+        odometer += move_speed
+    elif command == "Reverse":
+        rover_pos[1] += move_speed
+        odometer += move_speed
+    elif command == "TurnLeft":
+        rover_angle -= turn_speed
+        rover_pos[0] -= int(move_speed * 0.5)  # Adjust X for turning left while moving
+        odometer += move_speed
+    elif command == "TurnRight":
+        rover_angle += turn_speed
+        rover_pos[0] += int(move_speed * 0.5)  # Adjust X for turning right while moving
+        odometer += move_speed
+    elif command == "RotateOnSpotLeft":
+        rover_angle -= turn_speed  # Rotate in place counter-clockwise
+    elif command == "RotateOnSpotRight":
+        rover_angle += turn_speed  # Rotate in place clockwise
+    elif command == "StopMovement":
+        pass  # No action, just stop
+    elif command == "RotatePeriscope":
+        mast_angle += turn_speed
+    else:
+        print("[ERROR] Unrecognized command.")
+
+    path.append(rover_pos[:])
+    return rover_pos, rover_angle, path, odometer, mast_angle
+
 # HUD and Overlay Drawing Functions
 def draw_hud(screen, resources, obstacles, odometer, scanned_percentage, rover_pos):
     """Display the HUD with resource count, obstacle count, odometer, scanned percentage, and rover position."""
