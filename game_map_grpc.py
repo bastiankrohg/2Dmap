@@ -5,7 +5,7 @@ import math
 from concurrent import futures
 from rover_protos import mars_rover_pb2, mars_rover_pb2_grpc
 from components.map_management import save_map, load_map, get_last_used_map
-from components.drawing import draw_grid, draw_path, draw_rover, draw_arrows, draw_fov, update_scanned_area
+from components.drawing import draw_grid, draw_path, draw_rover, draw_arrows, draw_resources, draw_obstacles, draw_fov, update_scanned_area
 from components.game_logic import draw_hud, draw_overlay
 from components.constants import WIDTH, HEIGHT, BACKGROUND_COLOR, MAP_SIZE, SCANNED_OFFSET
 
@@ -69,21 +69,21 @@ class MappingServer(mars_rover_pb2_grpc.RoverServiceServicer):
         resource_position = self._compute_position(request.distance)
         resource_data = {
             "position": resource_position,
-            "size": request.size,
-            "object": request.object
+            "size": request.size if request.size else 5,  # Default size
+            "object": request.object if request.object else "N/A",  # Default object label
         }
         self.resources.append(resource_data)
-        return mars_rover_pb2.CommandResponse(success=True, message=f"Resource mapped: {request.object}")
+        return mars_rover_pb2.CommandResponse(success=True, message=f"Resource mapped: {resource_data['object']}")
 
     def MapObstacle(self, request, context):
         obstacle_position = self._compute_position(request.distance)
         obstacle_data = {
             "position": obstacle_position,
-            "size": request.size,
-            "object": request.object
+            "size": request.size if request.size else 3,  # Default size
+            "object": request.object if request.object else "N/A",  # Default object label
         }
         self.obstacles.append(obstacle_data)
-        return mars_rover_pb2.CommandResponse(success=True, message=f"Obstacle mapped: {request.object}")
+        return mars_rover_pb2.CommandResponse(success=True, message=f"Obstacle mapped: {obstacle_data['object']}")
 
     def ToggleResourceList(self, request, context):
         self.show_resource_list = not self.show_resource_list
@@ -119,6 +119,9 @@ def game_loop(server, scanned_surface, args):
         draw_rover(screen, server.rover_pos, view_offset)
         draw_arrows(screen, server.rover_pos, server.rover_angle, server.mast_angle, view_offset)
         draw_fov(screen, server.rover_pos, server.mast_angle, view_offset)
+
+        draw_resources(screen, server.resources, view_offset)
+        draw_obstacles(screen, server.obstacles, view_offset)
 
         if server.trace_scanned_area:
             update_scanned_area(scanned_surface, server.rover_pos, server.mast_angle, [-WIDTH // 2, -HEIGHT // 2])
