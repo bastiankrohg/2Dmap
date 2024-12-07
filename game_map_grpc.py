@@ -5,21 +5,22 @@ import math
 from concurrent import futures
 from rover_protos import mars_rover_pb2, mars_rover_pb2_grpc
 from components.map_management import save_map, load_map, get_last_used_map
-from components.drawing import draw_grid, draw_path, draw_rover, draw_arrows, draw_fov, update_scanned_area, draw_resources, draw_obstacles
-from components.game_logic import draw_hud
+from components.drawing import draw_grid, draw_path, draw_rover, draw_arrows, draw_fov, update_scanned_area
+from components.game_logic import draw_hud, draw_overlay
 from components.constants import WIDTH, HEIGHT, BACKGROUND_COLOR, MAP_SIZE, SCANNED_OFFSET
-from components.utils import compute_resource_position, compute_obstacle_positions
 
 class MappingServer(mars_rover_pb2_grpc.RoverServiceServicer):
     def __init__(self):
         self.command = None
-        self.rover_pos = [0, 0]  # Rover starts at (0, 0)
+        self.rover_pos = [0, 0]  # Start at (0, 0)
         self.rover_angle = 0
         self.mast_angle = 0
         self.path = []
-        self.trace_scanned_area = False
         self.resources = []
         self.obstacles = []
+        self.trace_scanned_area = False
+        self.show_resource_list = False
+        self.show_obstacle_list = False
         print("[DEBUG] MappingServer initialized.")
 
     def DriveForward(self, request, context):
@@ -45,13 +46,13 @@ class MappingServer(mars_rover_pb2_grpc.RoverServiceServicer):
     def TurnLeft(self, request, context):
         self.command = "TurnLeft"
         self.rover_angle += request.angle
-        self.rover_angle %= 360  # Keep angle within bounds
+        self.rover_angle %= 360
         return mars_rover_pb2.CommandResponse(success=True, message="Turned left.")
 
     def TurnRight(self, request, context):
         self.command = "TurnRight"
         self.rover_angle -= request.angle
-        self.rover_angle %= 360  # Keep angle within bounds
+        self.rover_angle %= 360
         return mars_rover_pb2.CommandResponse(success=True, message="Turned right.")
 
     def TurnOnSpot(self, request, context):
@@ -64,18 +65,43 @@ class MappingServer(mars_rover_pb2_grpc.RoverServiceServicer):
         self.command = "StopMovement"
         return mars_rover_pb2.CommandResponse(success=True, message="Stopped movement.")
 
-    def PlaceResource(self, request, context):
-        resource_pos = compute_resource_position(self.rover_pos, self.mast_angle, request.distance)
-        self.resources.append(resource_pos)
-        return mars_rover_pb2.CommandResponse(success=True, message="Resource placed.")
+    def MapResource(self, request, context):
+        resource_position = self._compute_position(request.distance)
+        resource_data = {
+            "position": resource_position,
+            "size": request.size,
+            "object": request.object
+        }
+        self.resources.append(resource_data)
+        return mars_rover_pb2.CommandResponse(success=True, message=f"Resource mapped: {request.object}")
 
-    def PlaceObstacle(self, request, context):
-        obstacle_pos = compute_obstacle_positions(self.rover_pos, self.mast_angle, request.distance)
-        self.obstacles.append(obstacle_pos)
-        return mars_rover_pb2.CommandResponse(success=True, message="Obstacle placed.")
+    def MapObstacle(self, request, context):
+        obstacle_position = self._compute_position(request.distance)
+        obstacle_data = {
+            "position": obstacle_position,
+            "size": request.size,
+            "object": request.object
+        }
+        self.obstacles.append(obstacle_data)
+        return mars_rover_pb2.CommandResponse(success=True, message=f"Obstacle mapped: {request.object}")
+
+    def ToggleResourceList(self, request, context):
+        self.show_resource_list = not self.show_resource_list
+        return mars_rover_pb2.CommandResponse(success=True, message="Toggled resource list display.")
+
+    def ToggleObstacleList(self, request, context):
+        self.show_obstacle_list = not self.show_obstacle_list
+        return mars_rover_pb2.CommandResponse(success=True, message="Toggled obstacle list display.")
+
+    def _compute_position(self, distance):
+        """Calculate position based on current rover position and mast angle."""
+        rad_angle = math.radians(self.mast_angle)
+        dx = distance * math.cos(rad_angle)
+        dy = -distance * math.sin(rad_angle)
+        return [self.rover_pos[0] + dx, self.rover_pos[1] + dy]
 
     def _update_path(self):
-        """Add current position to the traced path."""
+        """Add the current position to the traced path."""
         self.path.append(self.rover_pos[:])
 
 def game_loop(server, scanned_surface, args):
@@ -84,8 +110,8 @@ def game_loop(server, scanned_surface, args):
     pygame.display.set_caption("Rover Mapping - gRPC Controlled")
     clock = pygame.time.Clock()
 
-    view_offset = [0, 0]  # Start view centered at (0, 0)
-
+    view_offset = [0, 0]  # Centered on the starting position
+    
     while True:
         screen.fill(BACKGROUND_COLOR)
         draw_grid(screen, view_offset)
@@ -93,26 +119,22 @@ def game_loop(server, scanned_surface, args):
         draw_rover(screen, server.rover_pos, view_offset)
         draw_arrows(screen, server.rover_pos, server.rover_angle, server.mast_angle, view_offset)
         draw_fov(screen, server.rover_pos, server.mast_angle, view_offset)
-        draw_resources(screen, server.resources, view_offset)
-        draw_obstacles(screen, server.obstacles, view_offset)
 
         if server.trace_scanned_area:
-            update_scanned_area(scanned_surface, server.rover_pos, server.mast_angle, view_offset)
+            update_scanned_area(scanned_surface, server.rover_pos, server.mast_angle, [-WIDTH // 2, -HEIGHT // 2])
 
-        # Handle StopMovement explicitly
-        if server.command and server.command == "StopMovement":
-            server.command = None
-
+        # Blit the scanned surface
         screen.blit(
             scanned_surface,
             (0, 0),
-            pygame.Rect(
-                view_offset[0] + SCANNED_OFFSET[0],
-                view_offset[1] + SCANNED_OFFSET[1],
-                WIDTH,
-                HEIGHT,
-            ),
+            pygame.Rect(SCANNED_OFFSET[0], SCANNED_OFFSET[1], WIDTH, HEIGHT),
         )
+
+        # Show resource or obstacle lists if toggled
+        if server.show_resource_list:
+            draw_overlay(screen, "Resources", server.resources)
+        if server.show_obstacle_list:
+            draw_overlay(screen, "Obstacles", server.obstacles)
 
         # Adjust view offset for smooth scrolling
         if server.rover_pos[0] - view_offset[0] < WIDTH // 4:
@@ -124,14 +146,14 @@ def game_loop(server, scanned_surface, args):
         elif server.rover_pos[1] - view_offset[1] > 3 * HEIGHT // 4:
             view_offset[1] += HEIGHT // 10
 
+        # Draw HUD
         draw_hud(screen, server.resources, server.obstacles, len(server.path), 0, server.rover_pos)
+
         pygame.display.flip()
         clock.tick(30)
 
 def main():
     parser = argparse.ArgumentParser(description="Rover Mapping with gRPC")
-    parser.add_argument("--load-last", action="store_true", help="Load the last saved map.")
-    parser.add_argument("--new-map", action="store_true", help="Start a new map.")
     parser.add_argument("--server", type=str, default="localhost:50051", help="Address of the gRPC server.")
     args = parser.parse_args()
 
