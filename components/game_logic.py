@@ -35,45 +35,50 @@ def update_rover_position(keys, rover_pos, rover_angle, path, odometer, mast_ang
         mast_angle -= 5
     return rover_pos, rover_angle, path, odometer, mast_angle
 
-def update_rover_position_grpc(
-    command, rover_pos, rover_angle, path, odometer, mast_angle
-):
+def update_rover_position_grpc(command, rover_pos, rover_angle, path, odometer, mast_angle):
     """
-    Update the rover's position and angle based on received gRPC commands.
+    Update the rover's position and orientation based on gRPC commands.
+    Args:
+        command (str): The gRPC command (e.g., "DriveForward", "TurnLeft").
+        rover_pos (list): The current rover position [x, y].
+        rover_angle (float): The current rover heading angle.
+        path (list): The traced path of the rover.
+        odometer (float): The total distance traveled.
+        mast_angle (float): The mast's angle for resource/obstacle direction.
+    Returns:
+        Updated rover_pos, rover_angle, path, odometer, mast_angle.
     """
-    if command and command != "StopMovement":
-        print(f"[DEBUG] Executing command: {command}")
-
-    move_speed = 5  # Movement step size
-    turn_speed = 15  # Rotation step size
+    speed = 5  # Default movement speed
+    rotation_speed = 15  # Default rotation angle
 
     if command == "DriveForward":
-        rover_pos[1] -= move_speed
-        odometer += move_speed
+        dx = speed * math.cos(math.radians(rover_angle))
+        dy = -speed * math.sin(math.radians(rover_angle))
+        rover_pos[0] += dx
+        rover_pos[1] += dy
+        odometer += math.sqrt(dx**2 + dy**2)
+        path.append(tuple(rover_pos))
     elif command == "Reverse":
-        rover_pos[1] += move_speed
-        odometer += move_speed
+        dx = -speed * math.cos(math.radians(rover_angle))
+        dy = speed * math.sin(math.radians(rover_angle))
+        rover_pos[0] += dx
+        rover_pos[1] += dy
+        odometer += math.sqrt(dx**2 + dy**2)
+        path.append(tuple(rover_pos))
     elif command == "TurnLeft":
-        rover_angle -= turn_speed
-        rover_pos[0] -= int(move_speed * 0.5)  # Adjust X for turning left while moving
-        odometer += move_speed
+        rover_angle = (rover_angle - rotation_speed) % 360
     elif command == "TurnRight":
-        rover_angle += turn_speed
-        rover_pos[0] += int(move_speed * 0.5)  # Adjust X for turning right while moving
-        odometer += move_speed
-    elif command == "RotateOnSpotLeft":
-        rover_angle -= turn_speed  # Rotate in place counter-clockwise
-    elif command == "RotateOnSpotRight":
-        rover_angle += turn_speed  # Rotate in place clockwise
+        rover_angle = (rover_angle + rotation_speed) % 360
+    elif command == "RotateOnSpot":
+        rover_angle = (rover_angle + mast_angle) % 360
     elif command == "StopMovement":
-        pass  # No action, just stop
-    elif command == "RotatePeriscope":
-        mast_angle += turn_speed
+        # Do nothing; the rover remains stationary
+        pass
     else:
-        print("[ERROR] Unrecognized command.")
+        print(f"[DEBUG] Unknown command received: {command}")
 
-    path.append(rover_pos[:])
     return rover_pos, rover_angle, path, odometer, mast_angle
+
 
 # HUD and Overlay Drawing Functions
 def draw_hud(screen, resources, obstacles, odometer, scanned_percentage, rover_pos):
