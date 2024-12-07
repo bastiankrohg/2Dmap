@@ -5,18 +5,21 @@ import math
 from concurrent import futures
 from rover_protos import mars_rover_pb2, mars_rover_pb2_grpc
 from components.map_management import save_map, load_map, get_last_used_map
-from components.drawing import draw_grid, draw_path, draw_rover, draw_arrows, draw_fov, update_scanned_area
+from components.drawing import draw_grid, draw_path, draw_rover, draw_arrows, draw_fov, update_scanned_area, draw_resources, draw_obstacles
 from components.game_logic import draw_hud
 from components.constants import WIDTH, HEIGHT, BACKGROUND_COLOR, MAP_SIZE, SCANNED_OFFSET
+from components.utils import compute_resource_position, compute_obstacle_positions
 
 class MappingServer(mars_rover_pb2_grpc.RoverServiceServicer):
     def __init__(self):
         self.command = None
-        self.rover_pos = [WIDTH // 2, HEIGHT // 2]
+        self.rover_pos = [0, 0]  # Rover starts at (0, 0)
         self.rover_angle = 0
         self.mast_angle = 0
         self.path = []
         self.trace_scanned_area = False
+        self.resources = []
+        self.obstacles = []
         print("[DEBUG] MappingServer initialized.")
 
     def DriveForward(self, request, context):
@@ -41,29 +44,35 @@ class MappingServer(mars_rover_pb2_grpc.RoverServiceServicer):
 
     def TurnLeft(self, request, context):
         self.command = "TurnLeft"
-        self.rover_angle -= request.angle
+        self.rover_angle += request.angle
         self.rover_angle %= 360  # Keep angle within bounds
-        print(f"[DEBUG] Turned left by {request.angle} degrees.")
         return mars_rover_pb2.CommandResponse(success=True, message="Turned left.")
 
     def TurnRight(self, request, context):
         self.command = "TurnRight"
-        self.rover_angle += request.angle
+        self.rover_angle -= request.angle
         self.rover_angle %= 360  # Keep angle within bounds
-        print(f"[DEBUG] Turned right by {request.angle} degrees.")
         return mars_rover_pb2.CommandResponse(success=True, message="Turned right.")
 
     def TurnOnSpot(self, request, context):
         self.command = "TurnOnSpot"
         self.rover_angle += request.angle
         self.rover_angle %= 360
-        print(f"[DEBUG] Turned on spot by {request.angle} degrees.")
         return mars_rover_pb2.CommandResponse(success=True, message="Turned on the spot.")
 
     def StopMovement(self, request, context):
         self.command = "StopMovement"
-        print("[DEBUG] Movement stopped.")
-        return mars_rover_pb2.CommandResponse(success=True, message="Stopped.")
+        return mars_rover_pb2.CommandResponse(success=True, message="Stopped movement.")
+
+    def PlaceResource(self, request, context):
+        resource_pos = compute_resource_position(self.rover_pos, self.mast_angle, request.distance)
+        self.resources.append(resource_pos)
+        return mars_rover_pb2.CommandResponse(success=True, message="Resource placed.")
+
+    def PlaceObstacle(self, request, context):
+        obstacle_pos = compute_obstacle_positions(self.rover_pos, self.mast_angle, request.distance)
+        self.obstacles.append(obstacle_pos)
+        return mars_rover_pb2.CommandResponse(success=True, message="Obstacle placed.")
 
     def _update_path(self):
         """Add current position to the traced path."""
@@ -75,7 +84,7 @@ def game_loop(server, scanned_surface, args):
     pygame.display.set_caption("Rover Mapping - gRPC Controlled")
     clock = pygame.time.Clock()
 
-    view_offset = [-WIDTH // 2, -HEIGHT // 2]
+    view_offset = [0, 0]  # Start view centered at (0, 0)
 
     while True:
         screen.fill(BACKGROUND_COLOR)
@@ -84,6 +93,8 @@ def game_loop(server, scanned_surface, args):
         draw_rover(screen, server.rover_pos, view_offset)
         draw_arrows(screen, server.rover_pos, server.rover_angle, server.mast_angle, view_offset)
         draw_fov(screen, server.rover_pos, server.mast_angle, view_offset)
+        draw_resources(screen, server.resources, view_offset)
+        draw_obstacles(screen, server.obstacles, view_offset)
 
         if server.trace_scanned_area:
             update_scanned_area(scanned_surface, server.rover_pos, server.mast_angle, view_offset)
@@ -113,7 +124,7 @@ def game_loop(server, scanned_surface, args):
         elif server.rover_pos[1] - view_offset[1] > 3 * HEIGHT // 4:
             view_offset[1] += HEIGHT // 10
 
-        draw_hud(screen, [], [], len(server.path), 0, server.rover_pos)
+        draw_hud(screen, server.resources, server.obstacles, len(server.path), 0, server.rover_pos)
         pygame.display.flip()
         clock.tick(30)
 
