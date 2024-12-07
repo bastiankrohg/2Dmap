@@ -34,12 +34,17 @@ def draw_arrows(screen, rover_pos, rover_angle, mast_angle, view_offset):
     """Draw arrows indicating the rover's and mast's facing direction."""
     adjusted_rover_pos = (rover_pos[0] - view_offset[0], rover_pos[1] - view_offset[1])
 
+    # Adjust rover_angle by -90 degrees to align with the expected direction
+    # Subtract 180 degrees to reverse the arrow direction
+    adjusted_rover_angle = rover_angle - 270
+
     # Rover arrow
-    rover_end_x = adjusted_rover_pos[0] + math.cos(math.radians(rover_angle)) * 40
-    rover_end_y = adjusted_rover_pos[1] - math.sin(math.radians(rover_angle)) * 40
+    rover_end_x = adjusted_rover_pos[0] + math.cos(math.radians(adjusted_rover_angle)) * 40
+    rover_end_y = adjusted_rover_pos[1] - math.sin(math.radians(adjusted_rover_angle)) * 40
     pygame.draw.line(screen, (0, 255, 0), adjusted_rover_pos, (rover_end_x, rover_end_y), 3)
 
     # Mast arrow
+    # No need to adjust mast_angle; it directly represents the mast's heading
     mast_end_x = adjusted_rover_pos[0] + math.cos(math.radians(mast_angle)) * 40
     mast_end_y = adjusted_rover_pos[1] - math.sin(math.radians(mast_angle)) * 40
     pygame.draw.line(screen, (0, 0, 255), adjusted_rover_pos, (mast_end_x, mast_end_y), 3)
@@ -62,11 +67,11 @@ def draw_resources(screen, resources, view_offset):
         font = pygame.font.SysFont(None, 24)
         label_surface = font.render(label, True, (255, 255, 255))
         screen.blit(label_surface, (adjusted_start[0] + size + 5, adjusted_start[1]))
-        
+
 def draw_obstacles(screen, obstacles, view_offset):
     """
-    Draw obstacles on the map. Each obstacle is represented as a red rectangle
-    with an optional label and size.
+    Draw obstacles on the map. Each obstacle is represented as a red line
+    with an optional label and size defining its length.
     """
     for obstacle in obstacles:
         position = obstacle["position"]
@@ -74,13 +79,16 @@ def draw_obstacles(screen, obstacles, view_offset):
         label = obstacle.get("object", "Obstacle")  # Default label if not provided
         adjusted_start = (position[0] - view_offset[0], position[1] - view_offset[1])
 
-        # Draw the obstacle as a rectangle
-        pygame.draw.rect(screen, (255, 0, 0), (adjusted_start[0], adjusted_start[1], size, size))
+        # Calculate the end position of the line based on size (length)
+        adjusted_end = (adjusted_start[0] + size, adjusted_start[1])
+
+        # Draw the obstacle as a red line
+        pygame.draw.line(screen, (255, 0, 0), adjusted_start, adjusted_end, 2)
 
         # Draw the label text near the obstacle
         font = pygame.font.SysFont(None, 24)
         label_surface = font.render(label, True, (255, 255, 255))
-        screen.blit(label_surface, (adjusted_start[0] + size + 5, adjusted_start[1]))
+        screen.blit(label_surface, (adjusted_end[0] + 5, adjusted_end[1] - 10))
         
 def draw_fov(screen, rover_pos, mast_angle, view_offset):
     """Draw the circular segment field of view around the rover."""
