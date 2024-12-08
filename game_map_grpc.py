@@ -64,6 +64,12 @@ class MappingServer(mars_rover_pb2_grpc.RoverServiceServicer):
         self.mast_angle = (self.mast_angle + request.angle) % 360
         return mars_rover_pb2.CommandResponse(success=True, message="Turned on the spot.")
 
+    def RotatePeriscope(self, request, context):
+        """Rotate the mast by the given angle."""
+        self.mast_angle = (self.mast_angle + request.angle) % 360
+        print(f"[DEBUG] Mast rotated to {self.mast_angle} degrees.")
+        return mars_rover_pb2.CommandResponse(success=True, message="Mast rotated.")
+
     def StopMovement(self, request, context):
         self.command = "StopMovement"
         return mars_rover_pb2.CommandResponse(success=True, message="Stopped movement.")
@@ -97,10 +103,10 @@ class MappingServer(mars_rover_pb2_grpc.RoverServiceServicer):
         return mars_rover_pb2.CommandResponse(success=True, message="Toggled obstacle list display.")
 
     def _compute_position(self, distance):
-        """Calculate position based on current rover position and mast angle."""
-        rad_angle = math.radians(self.mast_angle)
+        corrected_angle = (self.mast_angle + 90) % 360  # Correct the offset
+        rad_angle = math.radians(corrected_angle)
         dx = distance * math.cos(rad_angle)
-        dy = -distance * math.sin(rad_angle)
+        dy = -distance * math.sin(rad_angle)  # Invert for Pygame's y-axis
         return [self.rover_pos[0] + dx, self.rover_pos[1] + dy]
 
     def _update_path(self):
