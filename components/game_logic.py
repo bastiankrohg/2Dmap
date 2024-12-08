@@ -96,7 +96,7 @@ def draw_hud(screen, resources, obstacles, odometer, scanned_percentage, rover_p
 
 def draw_overlay(screen, title, items):
     """Draw an overlay list of items with a title."""
-    overlay_width = WIDTH // 3
+    overlay_width = WIDTH // 2
     overlay_height = HEIGHT // 2
     overlay_x = (WIDTH - overlay_width) // 2
     overlay_y = HEIGHT - overlay_height - 10
@@ -108,30 +108,30 @@ def draw_overlay(screen, title, items):
     header_text = list_font.render(title, True, (255, 255, 255))
     screen.blit(header_text, (overlay_x + 10, overlay_y + 10))
 
-    # Display each item in the list
     if not items:
-        # If the list is empty, show a placeholder message
         empty_text = list_font.render("No items to display", True, (255, 255, 255))
         screen.blit(empty_text, (overlay_x + 10, overlay_y + 30))
         return
 
     # Display each item in the list
     for i, item in enumerate(items):
-        if isinstance(item, dict):  # For new format with position, size, and object
-            position = item.get("position", (0, 0))
-            size = item.get("size", 0)
-            object_label = item.get("object", "N/A")
-            text = (f"{i + 1}: {object_label} at "
-                    f"({round(position[0], 2)}, {round(position[1], 2)}), size: {round(size, 2)}")
-        elif isinstance(item[0], tuple):  # For older obstacle format
-            start, end = item
-            text = (f"{i + 1}: ({round(start[0], 2)}, {round(start[1], 2)}) to "
-                    f"({round(end[0], 2)}, {round(end[1], 2)})")
-        else:  # For older resource format
-            text = f"{i + 1}: ({round(item[0], 2)}, {round(item[1], 2)})"
-        
-    item_surface = list_font.render(text, True, (255, 255, 255))
-    screen.blit(item_surface, (overlay_x + 10, overlay_y + 30 + i * 20))
+        try:
+            if isinstance(item, dict):  # New-style data with dictionary structure
+                pos = item.get("position", (0, 0))
+                size = item.get("size", 1)
+                obj_name = item.get("object", "N/A")
+                text = f"{i + 1}: Pos: ({round(pos[0], 2)}, {round(pos[1], 2)}) | Size: {size} | Object: {obj_name}"
+            elif isinstance(item, tuple):  # Backward compatibility
+                start, end = item
+                text = (f"{i + 1}: ({round(start[0], 2)}, {round(start[1], 2)}) to "
+                        f"({round(end[0], 2)}, {round(end[1], 2)})")
+            else:
+                text = f"{i + 1}: Invalid data format"
+        except Exception as e:
+            text = f"{i + 1}: Error rendering item: {e}"
+
+        item_surface = list_font.render(text, True, (255, 255, 255))
+        screen.blit(item_surface, (overlay_x + 10, overlay_y + 30 + i * 20))
 
 def toggle_hud(event, show_resource_list, show_obstacle_list):
     """Toggle the HUD display for resources and obstacles."""
