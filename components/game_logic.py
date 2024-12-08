@@ -110,13 +110,21 @@ def draw_overlay(screen, title, items):
 
     # Display each item in the list
     for i, item in enumerate(items):
-        if isinstance(item[0], tuple):  # For obstacles
+        if isinstance(item, dict):  # For new format with position, size, and object
+            position = item.get("position", (0, 0))
+            size = item.get("size", 0)
+            object_label = item.get("object", "N/A")
+            text = (f"{i + 1}: {object_label} at "
+                    f"({round(position[0], 2)}, {round(position[1], 2)}), size: {round(size, 2)}")
+        elif isinstance(item[0], tuple):  # For older obstacle format
             start, end = item
-            text = f"{i + 1}: ({round(start[0], 2)}, {round(start[1], 2)}) to ({round(end[0], 2)}, {round(end[1], 2)})"
-        else:  # For resources
+            text = (f"{i + 1}: ({round(start[0], 2)}, {round(start[1], 2)}) to "
+                    f"({round(end[0], 2)}, {round(end[1], 2)})")
+        else:  # For older resource format
             text = f"{i + 1}: ({round(item[0], 2)}, {round(item[1], 2)})"
-        item_surface = list_font.render(text, True, (255, 255, 255))
-        screen.blit(item_surface, (overlay_x + 10, overlay_y + 30 + i * 20))
+        
+    item_surface = list_font.render(text, True, (255, 255, 255))
+    screen.blit(item_surface, (overlay_x + 10, overlay_y + 30 + i * 20))
 
 def toggle_hud(event, show_resource_list, show_obstacle_list):
     """Toggle the HUD display for resources and obstacles."""

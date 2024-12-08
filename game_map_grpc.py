@@ -47,18 +47,21 @@ class MappingServer(mars_rover_pb2_grpc.RoverServiceServicer):
         self.command = "TurnLeft"
         self.rover_angle += request.angle
         self.rover_angle %= 360
+        self.mast_angle = (self.mast_angle + request.angle) % 360
         return mars_rover_pb2.CommandResponse(success=True, message="Turned left.")
 
     def TurnRight(self, request, context):
         self.command = "TurnRight"
         self.rover_angle -= request.angle
         self.rover_angle %= 360
+        self.mast_angle = (self.mast_angle - request.angle) % 360
         return mars_rover_pb2.CommandResponse(success=True, message="Turned right.")
 
     def TurnOnSpot(self, request, context):
         self.command = "TurnOnSpot"
         self.rover_angle += request.angle
         self.rover_angle %= 360
+        self.mast_angle = (self.mast_angle + request.angle) % 360
         return mars_rover_pb2.CommandResponse(success=True, message="Turned on the spot.")
 
     def StopMovement(self, request, context):
@@ -167,7 +170,14 @@ def main():
     grpc_server.start()
 
     scanned_surface = pygame.Surface((MAP_SIZE, MAP_SIZE), pygame.SRCALPHA)
-    game_loop(server, scanned_surface, args)
+    
+    try:
+        game_loop(server, scanned_surface, args)
+    except KeyboardInterrupt:
+        print("[DEBUG] Shutting down gRPC server.")
+        grpc_server.stop(0)  # Stop the server gracefully
+        pygame.quit()
+        exit(0)
 
 if __name__ == "__main__":
     main()
