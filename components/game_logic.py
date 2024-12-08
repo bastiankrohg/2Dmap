@@ -109,6 +109,13 @@ def draw_overlay(screen, title, items):
     screen.blit(header_text, (overlay_x + 10, overlay_y + 10))
 
     # Display each item in the list
+    if not items:
+        # If the list is empty, show a placeholder message
+        empty_text = list_font.render("No items to display", True, (255, 255, 255))
+        screen.blit(empty_text, (overlay_x + 10, overlay_y + 30))
+        return
+
+    # Display each item in the list
     for i, item in enumerate(items):
         if isinstance(item, dict):  # For new format with position, size, and object
             position = item.get("position", (0, 0))
