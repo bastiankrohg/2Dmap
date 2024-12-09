@@ -121,7 +121,6 @@ class MappingServer(mars_rover_pb2_grpc.RoverServiceServicer):
             self.rover_angle,
             self.mast_angle,
             name=request.file_name if request.file_name else "map.json",
-            scanned_surface=self.scanned_surface
         )
         return mars_rover_pb2.CommandResponse(success=True, message="Map saved successfully.")
 

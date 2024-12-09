@@ -62,7 +62,6 @@ def save_map(path, rover_pos, resources, obstacles, rover_angle, mast_angle, nam
     except Exception as e:
         print(f"[ERROR] Failed to save map: {e}")
 
-
 def load_map(map_name):
     """
     Load map data from a file, including the scanned zone.
