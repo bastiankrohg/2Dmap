@@ -19,6 +19,7 @@ fetch('/maps/latest.json')
     })
     .then(data => {
         mapData = data;
+        populateLists();
         drawMap();
     })
     .catch(error => console.error("Error loading map data:", error));
@@ -107,6 +108,52 @@ function drawMap() {
     ctx.stroke();
 }
 
+// Populate resource and obstacle lists
+function populateLists() {
+    const resourcesList = document.getElementById("resources-items");
+    const obstaclesList = document.getElementById("obstacles-items");
+
+    // Populate resources
+    resourcesList.innerHTML = '';
+    mapData.resources.forEach((resource, index) => {
+        const li = document.createElement("li");
+        li.textContent = `Resource ${index + 1}: (${resource.position[0].toFixed(2)}, ${resource.position[1].toFixed(2)}), Size: ${resource.size}, Object: ${resource.object}`;
+        li.addEventListener("click", () => highlightResource(resource));
+        resourcesList.appendChild(li);
+    });
+
+    // Populate obstacles
+    obstaclesList.innerHTML = '';
+    mapData.obstacles.forEach((obstacle, index) => {
+        const li = document.createElement("li");
+        li.textContent = `Obstacle ${index + 1}: (${obstacle.position[0].toFixed(2)}, ${obstacle.position[1].toFixed(2)}), Size: ${obstacle.size}, Object: ${obstacle.object}`;
+        li.addEventListener("click", () => highlightObstacle(obstacle));
+        obstaclesList.appendChild(li);
+    });
+}
+
+// Highlight a specific resource
+function highlightResource(resource) {
+    const resX = resource.position[0] + offsetX;
+    const resY = resource.position[1] + offsetY;
+    ctx.strokeStyle = 'yellow';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(resX, resY, resource.size + 5, 0, 2 * Math.PI);
+    ctx.stroke();
+}
+
+// Highlight a specific obstacle
+function highlightObstacle(obstacle) {
+    const obsX = obstacle.position[0] + offsetX;
+    const obsY = obstacle.position[1] + offsetY;
+    ctx.strokeStyle = 'orange';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(obsX, obsY, obstacle.size + 5, 0, 2 * Math.PI);
+    ctx.stroke();
+}
+
 // Handle mouse drag
 canvas.addEventListener("mousedown", (e) => {
     isDragging = true;
@@ -132,4 +179,13 @@ canvas.addEventListener("mouseup", () => {
 
 canvas.addEventListener("mouseleave", () => {
     isDragging = false;
+});
+
+// Toggle resource and obstacle lists
+document.getElementById("resources-toggle").addEventListener("click", () => {
+    document.getElementById("resources-list").classList.toggle("hidden");
+});
+
+document.getElementById("obstacles-toggle").addEventListener("click", () => {
+    document.getElementById("obstacles-list").classList.toggle("hidden");
 });

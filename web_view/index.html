@@ -8,14 +8,23 @@
 </head>
 <body>
     <div id="container">
-        <div id="hud"></div>
-        <canvas id="mapCanvas" width="800" height="600"></canvas>
-        <div id="lists">
-            <h3>Resources</h3>
-            <ul id="resource-list"></ul>
-            <h3>Obstacles</h3>
-            <ul id="obstacle-list"></ul>
-        </div>
+        <div id="controls">
+            <button id="resources-toggle">Resources</button>
+            <button id="obstacles-toggle">Obstacles</button>
+          </div>
+          
+          <div id="lists">
+            <div id="resources-list" class="hidden">
+              <h3>Resources</h3>
+              <ul id="resources-items"></ul>
+            </div>
+            <div id="obstacles-list" class="hidden">
+              <h3>Obstacles</h3>
+              <ul id="obstacles-items"></ul>
+            </div>
+          </div>          
+          <canvas id="mapCanvas" width="800" height="600"></canvas>
+          <div id="hud"></div>
     </div>
     <script src="/main.js"></script>
 </body>
