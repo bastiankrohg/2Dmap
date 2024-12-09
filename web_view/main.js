@@ -8,6 +8,7 @@ let offsetY = canvas.height / 2;
 
 // Replay variables
 let isReplaying = false;
+let replayInterrupted = false;
 
 // Mouse drag and hover functionality
 let isDragging = false;
@@ -81,13 +82,18 @@ function highlightItem(position) {
 
 // Replay route function
 function replayRoute() {
-    if (!mapData || !mapData.path || mapData.path.length === 0) return;
+    if (!mapData || !mapData.path || mapData.path.length === 0 || isReplaying) return;
 
     let i = 0;
     let progress = 0; // Progress between points (0 to 1)
+    replayInterrupted = false;
+    isReplaying = true;
 
     function animate() {
-        if (i >= mapData.path.length - 1) return;
+        if (i >= mapData.path.length - 1 || replayInterrupted) {
+            isReplaying = false;
+            return;
+        }
 
         const [startX, startY] = mapData.path[i];
         const [endX, endY] = mapData.path[i + 1];
@@ -102,14 +108,18 @@ function replayRoute() {
         drawMap();
 
         // Increment progress
-        progress += 0.4; // Adjust speed here
+        progress += 1; // Adjust speed here
         if (progress >= 1) {
             progress = 0;
             i++; // Move to the next segment
         }
 
         // Continue animation
-        requestAnimationFrame(animate);
+        if (!replayInterrupted) {
+            requestAnimationFrame(animate);
+        } else {
+            isReplaying = false;
+        }
     }
 
     animate();
@@ -264,19 +274,24 @@ canvas.addEventListener("click", handleClick);
 
 // Resources and Obstacles buttons
 document.getElementById("resources-toggle").addEventListener("click", () => {
-    const list = document.getElementById("resources-list");
-    list.style.display = list.style.display === "none" ? "block" : "none";
-    populateList("resources");
+    const container = document.getElementById("resources-container");
+    container.style.display = container.style.display === "none" ? "block" : "none";
+    if (container.style.display === "block") {
+        populateList("resources");
+    }
 });
 
 document.getElementById("obstacles-toggle").addEventListener("click", () => {
-    const list = document.getElementById("obstacles-list");
-    list.style.display = list.style.display === "none" ? "block" : "none";
-    populateList("obstacles");
+    const container = document.getElementById("obstacles-container");
+    container.style.display = container.style.display === "none" ? "block" : "none";
+    if (container.style.display === "block") {
+        populateList("obstacles");
+    }
 });
 
 // Show Start and Show End buttons
 document.getElementById("show-start").addEventListener("click", () => {
+    replayInterrupted = true; // Interrupt replay
     if (!mapData || !mapData.path.length) return;
     const start = mapData.path[0];
     offsetX = canvas.width / 2 - start[0];
@@ -285,6 +300,7 @@ document.getElementById("show-start").addEventListener("click", () => {
 });
 
 document.getElementById("show-end").addEventListener("click", () => {
+    replayInterrupted = true; // Interrupt replay
     if (!mapData || !mapData.path.length) return;
     const end = mapData.path[mapData.path.length - 1];
     offsetX = canvas.width / 2 - end[0];
@@ -292,4 +308,7 @@ document.getElementById("show-end").addEventListener("click", () => {
     drawMap();
 });
 
-document.getElementById("replay-route").addEventListener("click", replayRoute);
+document.getElementById("replay-route").addEventListener("click", () => {
+    replayInterrupted = false; // Allow replay
+    replayRoute();
+});
