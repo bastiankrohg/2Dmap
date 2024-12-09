@@ -6,10 +6,11 @@ let mapData = null;
 let offsetX = canvas.width / 2;
 let offsetY = canvas.height / 2;
 
-// Mouse drag functionality
+// Mouse drag and hover functionality
 let isDragging = false;
 let lastMouseX = 0;
 let lastMouseY = 0;
+let hoveredObject = null;
 
 // Fetch map data
 fetch('/maps/latest.json')
@@ -65,7 +66,7 @@ function drawMap() {
         const resY = resource.position[1] + offsetY;
         ctx.fillStyle = 'green';
         ctx.beginPath();
-        ctx.arc(resX, resY, resource.size, 0, 2 * Math.PI);
+        ctx.arc(resX, resY, resource.size*2, 0, 2 * Math.PI);
         ctx.fill();
     });
 
@@ -78,6 +79,16 @@ function drawMap() {
         ctx.arc(obsX, obsY, obstacle.size, 0, 2 * Math.PI);
         ctx.fill();
     });
+
+    // Highlight hovered object
+    if (hoveredObject) {
+        const { x, y, size, type } = hoveredObject;
+        ctx.strokeStyle = type === 'resource' ? 'yellow' : 'orange';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(x, y, size + 5, 0, 2 * Math.PI);
+        ctx.stroke();
+    }
 
     // Draw rover
     const roverX = mapData.rover_pos[0] + offsetX;
@@ -108,51 +119,51 @@ function drawMap() {
     ctx.stroke();
 }
 
-// Populate resource and obstacle lists
-function populateLists() {
-    const resourcesList = document.getElementById("resources-items");
-    const obstaclesList = document.getElementById("obstacles-items");
+// Check if the mouse is over a resource or obstacle
+function checkHover(x, y) {
+    hoveredObject = null;
 
-    // Populate resources
-    resourcesList.innerHTML = '';
-    mapData.resources.forEach((resource, index) => {
-        const li = document.createElement("li");
-        li.textContent = `Resource ${index + 1}: (${resource.position[0].toFixed(2)}, ${resource.position[1].toFixed(2)}), Size: ${resource.size}, Object: ${resource.object}`;
-        li.addEventListener("click", () => highlightResource(resource));
-        resourcesList.appendChild(li);
+    const mouseX = x - offsetX;
+    const mouseY = y - offsetY;
+
+    // Check resources
+    mapData.resources.forEach(resource => {
+        const resX = resource.position[0];
+        const resY = resource.position[1];
+        const distance = Math.sqrt((mouseX - resX) ** 2 + (mouseY - resY) ** 2);
+        if (distance <= resource.size) {
+            hoveredObject = { x: resX + offsetX, y: resY + offsetY, size: resource.size, type: 'resource', data: resource };
+        }
     });
 
-    // Populate obstacles
-    obstaclesList.innerHTML = '';
-    mapData.obstacles.forEach((obstacle, index) => {
-        const li = document.createElement("li");
-        li.textContent = `Obstacle ${index + 1}: (${obstacle.position[0].toFixed(2)}, ${obstacle.position[1].toFixed(2)}), Size: ${obstacle.size}, Object: ${obstacle.object}`;
-        li.addEventListener("click", () => highlightObstacle(obstacle));
-        obstaclesList.appendChild(li);
+    // Check obstacles
+    mapData.obstacles.forEach(obstacle => {
+        const obsX = obstacle.position[0];
+        const obsY = obstacle.position[1];
+        const distance = Math.sqrt((mouseX - obsX) ** 2 + (mouseY - obsY) ** 2);
+        if (distance <= obstacle.size) {
+            hoveredObject = { x: obsX + offsetX, y: obsY + offsetY, size: obstacle.size, type: 'obstacle', data: obstacle };
+        }
     });
 }
 
-// Highlight a specific resource
-function highlightResource(resource) {
-    const resX = resource.position[0] + offsetX;
-    const resY = resource.position[1] + offsetY;
-    ctx.strokeStyle = 'yellow';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(resX, resY, resource.size + 5, 0, 2 * Math.PI);
-    ctx.stroke();
+// Display data of clicked object
+function handleClick() {
+    if (hoveredObject) {
+        alert(`Type: ${hoveredObject.type}\nPosition: (${hoveredObject.data.position[0].toFixed(2)}, ${hoveredObject.data.position[1].toFixed(2)})\nSize: ${hoveredObject.data.size}\nObject: ${hoveredObject.data.object}`);
+    }
 }
 
-// Highlight a specific obstacle
-function highlightObstacle(obstacle) {
-    const obsX = obstacle.position[0] + offsetX;
-    const obsY = obstacle.position[1] + offsetY;
-    ctx.strokeStyle = 'orange';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(obsX, obsY, obstacle.size + 5, 0, 2 * Math.PI);
-    ctx.stroke();
-}
+// Handle mouse movement for hover
+canvas.addEventListener("mousemove", (e) => {
+    if (!isDragging) {
+        checkHover(e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop);
+        drawMap();
+    }
+});
+
+// Handle mouse click for selection
+canvas.addEventListener("click", handleClick);
 
 // Handle mouse drag
 canvas.addEventListener("mousedown", (e) => {
@@ -179,13 +190,4 @@ canvas.addEventListener("mouseup", () => {
 
 canvas.addEventListener("mouseleave", () => {
     isDragging = false;
-});
-
-// Toggle resource and obstacle lists
-document.getElementById("resources-toggle").addEventListener("click", () => {
-    document.getElementById("resources-list").classList.toggle("hidden");
-});
-
-document.getElementById("obstacles-toggle").addEventListener("click", () => {
-    document.getElementById("obstacles-list").classList.toggle("hidden");
 });
