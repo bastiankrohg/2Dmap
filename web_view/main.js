@@ -6,6 +6,10 @@ let mapData = null;
 let offsetX = canvas.width / 2;
 let offsetY = canvas.height / 2;
 
+// Replay variables
+let isReplaying = false;
+let replayIndex = 0;
+
 // Mouse drag and hover functionality
 let isDragging = false;
 let lastMouseX = 0;
@@ -66,7 +70,7 @@ function drawMap() {
         const resY = resource.position[1] + offsetY;
         ctx.fillStyle = 'green';
         ctx.beginPath();
-        ctx.arc(resX, resY, resource.size*2, 0, 2 * Math.PI);
+        ctx.arc(resX, resY, resource.size, 0, 2 * Math.PI);
         ctx.fill();
     });
 
@@ -119,52 +123,6 @@ function drawMap() {
     ctx.stroke();
 }
 
-// Check if the mouse is over a resource or obstacle
-function checkHover(x, y) {
-    hoveredObject = null;
-
-    const mouseX = x - offsetX;
-    const mouseY = y - offsetY;
-
-    // Check resources
-    mapData.resources.forEach(resource => {
-        const resX = resource.position[0];
-        const resY = resource.position[1];
-        const distance = Math.sqrt((mouseX - resX) ** 2 + (mouseY - resY) ** 2);
-        if (distance <= resource.size) {
-            hoveredObject = { x: resX + offsetX, y: resY + offsetY, size: resource.size, type: 'resource', data: resource };
-        }
-    });
-
-    // Check obstacles
-    mapData.obstacles.forEach(obstacle => {
-        const obsX = obstacle.position[0];
-        const obsY = obstacle.position[1];
-        const distance = Math.sqrt((mouseX - obsX) ** 2 + (mouseY - obsY) ** 2);
-        if (distance <= obstacle.size) {
-            hoveredObject = { x: obsX + offsetX, y: obsY + offsetY, size: obstacle.size, type: 'obstacle', data: obstacle };
-        }
-    });
-}
-
-// Display data of clicked object
-function handleClick() {
-    if (hoveredObject) {
-        alert(`Type: ${hoveredObject.type}\nPosition: (${hoveredObject.data.position[0].toFixed(2)}, ${hoveredObject.data.position[1].toFixed(2)})\nSize: ${hoveredObject.data.size}\nObject: ${hoveredObject.data.object}`);
-    }
-}
-
-// Handle mouse movement for hover
-canvas.addEventListener("mousemove", (e) => {
-    if (!isDragging) {
-        checkHover(e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop);
-        drawMap();
-    }
-});
-
-// Handle mouse click for selection
-canvas.addEventListener("click", handleClick);
-
 // Handle mouse drag
 canvas.addEventListener("mousedown", (e) => {
     isDragging = true;
@@ -190,4 +148,43 @@ canvas.addEventListener("mouseup", () => {
 
 canvas.addEventListener("mouseleave", () => {
     isDragging = false;
+});
+
+// Button functionality
+document.getElementById("show-start").addEventListener("click", () => {
+    if (!mapData || !mapData.path.length) return;
+    const start = mapData.path[0];
+    offsetX = canvas.width / 2 - start[0];
+    offsetY = canvas.height / 2 - start[1];
+    drawMap();
+});
+
+document.getElementById("show-end").addEventListener("click", () => {
+    if (!mapData || !mapData.path.length) return;
+    const end = mapData.path[mapData.path.length - 1];
+    offsetX = canvas.width / 2 - end[0];
+    offsetY = canvas.height / 2 - end[1];
+    drawMap();
+});
+
+document.getElementById("replay-route").addEventListener("click", () => {
+    if (!mapData || !mapData.path.length) return;
+    isReplaying = true;
+    replayIndex = 0;
+
+    function replayStep() {
+        if (!isReplaying || replayIndex >= mapData.path.length) {
+            isReplaying = false;
+            return;
+        }
+
+        const [x, y] = mapData.path[replayIndex];
+        offsetX = canvas.width / 2 - x;
+        offsetY = canvas.height / 2 - y;
+        replayIndex++;
+        drawMap();
+        requestAnimationFrame(replayStep);
+    }
+
+    replayStep();
 });
