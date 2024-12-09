@@ -8,7 +8,8 @@ GRID_SIZE = 20
 MAP_SIZE = 10000 # For example
 
 # Center the scanned_surface so it supports negative coordinates
-SCANNED_OFFSET = [MAP_SIZE // 2, MAP_SIZE // 2]
+SCANNED_OFFSET = [0, 0]
+# SCANNED_OFFSET = [MAP_SIZE // 2, MAP_SIZE // 2]  # Center offset for global coordinates
 
 # Colors
 ROVER_COLOR = (0, 255, 0)

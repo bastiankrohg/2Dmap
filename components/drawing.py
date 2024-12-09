@@ -89,34 +89,60 @@ def draw_fov(screen, rover_pos, mast_angle, view_offset):
     # Blit the semi-transparent surface onto the main screen
     screen.blit(fov_surface, (0, 0))
 
+    # Calculate the FOV center (midpoint of the FOV arc)
+    fov_center_x = adjusted_rover_pos[0] + radius * math.cos(math.radians(adjusted_mast_angle))
+    fov_center_y = adjusted_rover_pos[1] - radius * math.sin(math.radians(adjusted_mast_angle))
+    fov_center = (fov_center_x, fov_center_y)
 
-def update_scanned_area(scanned_surface, rover_pos, mast_angle, view_offset):
+    # Return the FOV center for scanned area updates
+    return fov_center
+
+def update_scanned_area(scanned_surface, rover_pos, mast_angle):
     """
-    Update the scanned area on the global scanned_surface, constrained to the FoV,
-    and ensure alignment with the viewport using view_offset.
+    Update the scanned area using the exact FOV dimensions as a polygon.
     """
-    # Convert rover_pos to map-relative coordinates
-    map_x = int(rover_pos[0] + SCANNED_OFFSET[0])
-    map_y = int(rover_pos[1] + SCANNED_OFFSET[1])
+    # Convert mast angle and FOV boundaries into radians
+    mast_angle_rad = math.radians(mast_angle)
+    left_boundary_rad = mast_angle_rad - math.radians(FOV_ANGLE / 2)
+    right_boundary_rad = mast_angle_rad + math.radians(FOV_ANGLE / 2)
 
-    # Scanned area parameters
-    scan_radius = FOV_DISTANCE  # Radius of the scanned area
-    angle_span = FOV_ANGLE      # Field of view in degrees
+    # Calculate global coordinates for FOV vertices
+    left_vertex = (
+        rover_pos[0] + math.cos(left_boundary_rad) * FOV_DISTANCE,
+        rover_pos[1] - math.sin(left_boundary_rad) * FOV_DISTANCE
+    )
+    right_vertex = (
+        rover_pos[0] + math.cos(right_boundary_rad) * FOV_DISTANCE,
+        rover_pos[1] - math.sin(right_boundary_rad) * FOV_DISTANCE
+    )
 
-    # Create a mask for the scanned area
-    for angle in range(-angle_span // 2, angle_span // 2 + 1):
-        radians = math.radians(mast_angle + angle)
-        end_x = map_x + int(scan_radius * math.cos(radians))
-        end_y = map_y - int(scan_radius * math.sin(radians))
+    # Adjust for the scanned surface coordinate system
+    rover_surface_pos = (
+        int(rover_pos[0] + SCANNED_OFFSET[0]),
+        int(rover_pos[1] + SCANNED_OFFSET[1])
+    )
+    left_vertex_surface = (
+        int(left_vertex[0] + SCANNED_OFFSET[0]),
+        int(left_vertex[1] + SCANNED_OFFSET[1])
+    )
+    right_vertex_surface = (
+        int(right_vertex[0] + SCANNED_OFFSET[0]),
+        int(right_vertex[1] + SCANNED_OFFSET[1])
+    )
 
-        # Draw on the scanned surface only if within bounds
-        if 0 <= end_x < scanned_surface.get_width() and 0 <= end_y < scanned_surface.get_height():
-            pygame.draw.line(scanned_surface, (128, 128, 128, 50), (map_x, map_y), (end_x, end_y), 1)
+    # Create a temporary surface for the FOV polygon
+    temp_surface = pygame.Surface(scanned_surface.get_size(), pygame.SRCALPHA)
+    pygame.draw.polygon(
+        temp_surface,
+        (255, 255, 0, 30),  # Yellow translucent fill
+        [rover_surface_pos, left_vertex_surface, right_vertex_surface]
+    )
+
+    # Add the FOV polygon to the scanned surface
+    scanned_surface.blit(temp_surface, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
 
     # Debugging output
-    # print(f"Rover Global Position: {rover_pos}")
-    # print(f"Adjusted Map Position: ({map_x}, {map_y})")
-    # print(f"View Offset: {view_offset}")
+    print(f"[DEBUG] Scanned area updated with FOV shape at: {rover_surface_pos}")
 
 def draw_resources(screen, resources, view_offset):
     """

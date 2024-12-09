@@ -102,6 +102,15 @@ class MappingServer(mars_rover_pb2_grpc.RoverServiceServicer):
         self.show_obstacle_list = not self.show_obstacle_list
         return mars_rover_pb2.CommandResponse(success=True, message="Toggled obstacle list display.")
 
+    def ToggleScan(self, request, context):
+        """
+        Toggle the scanning mode.
+        """
+        self.trace_scanned_area = not self.trace_scanned_area
+        status = "enabled" if self.trace_scanned_area else "disabled"
+        print(f"[DEBUG] Scanning {status}.")
+        return mars_rover_pb2.CommandResponse(success=True, message=f"Scanning {status}.")
+
     def _compute_position(self, distance):
         corrected_angle = (self.mast_angle + 90) % 360  # Correct the offset
         rad_angle = math.radians(corrected_angle)
@@ -119,27 +128,28 @@ def game_loop(server, scanned_surface, args):
     pygame.display.set_caption("Rover Mapping - gRPC Controlled")
     clock = pygame.time.Clock()
 
-    view_offset = [0, 0]  # Centered on the starting position
+    view_offset = [-WIDTH // 2, - HEIGHT // 2]  # Centered on the starting position
     
     while True:
         screen.fill(BACKGROUND_COLOR)
+
         draw_grid(screen, view_offset)
         draw_path(screen, server.path, view_offset)
         draw_rover(screen, server.rover_pos, view_offset)
         draw_arrows(screen, server.rover_pos, server.rover_angle, server.mast_angle, view_offset)
-        draw_fov(screen, server.rover_pos, server.mast_angle, view_offset)
 
         draw_resources(screen, server.resources, view_offset)
         draw_obstacles(screen, server.obstacles, view_offset)
 
         if server.trace_scanned_area:
-            update_scanned_area(scanned_surface, server.rover_pos, server.mast_angle, [-WIDTH // 2, -HEIGHT // 2])
+            draw_fov(screen, server.rover_pos, server.mast_angle, view_offset)
+            update_scanned_area(scanned_surface, server.rover_pos, server.mast_angle)
 
-        # Blit the scanned surface
+        # Blit scanned surface adjusted for viewport
         screen.blit(
             scanned_surface,
-            (0, 0),
-            pygame.Rect(SCANNED_OFFSET[0], SCANNED_OFFSET[1], WIDTH, HEIGHT),
+            (view_offset[0] + SCANNED_OFFSET[0], view_offset[1] + SCANNED_OFFSET[1]),
+            pygame.Rect(0, 0, MAP_SIZE, MAP_SIZE)
         )
 
         # Show resource or obstacle lists if toggled
@@ -176,7 +186,8 @@ def main():
     grpc_server.start()
 
     scanned_surface = pygame.Surface((MAP_SIZE, MAP_SIZE), pygame.SRCALPHA)
-    
+    scanned_surface.fill((0, 0, 0, 0))  # Fully transparent background
+
     try:
         game_loop(server, scanned_surface, args)
     except KeyboardInterrupt:
