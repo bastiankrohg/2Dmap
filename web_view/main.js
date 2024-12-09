@@ -29,6 +29,26 @@ fetch('/maps/latest.json')
     })
     .catch(error => console.error("Error loading map data:", error));
 
+function populateList(type) {
+    const listElement = document.getElementById(`${type}-list`);
+    listElement.innerHTML = ""; // Clear existing items
+
+    const items = mapData[type]; // 'resources' or 'obstacles'
+    if (!items || items.length === 0) {
+        listElement.innerHTML = `<li>No ${type} detected.</li>`;
+        return;
+    }
+
+    items.forEach((item, index) => {
+        const li = document.createElement("li");
+        const label = item.object || "Unknown";
+        const position = item.position ? `(${item.position[0].toFixed(2)}, ${item.position[1].toFixed(2)})` : "(N/A)";
+        li.textContent = `${index + 1}. ${label} at ${position}`;
+        li.addEventListener("click", () => highlightItem(item.position));
+        listElement.appendChild(li);
+    });
+}
+
 // Update HUD
 function updateHUD() {
     const hud = document.getElementById("hud");
@@ -188,3 +208,6 @@ document.getElementById("replay-route").addEventListener("click", () => {
 
     replayStep();
 });
+
+document.getElementById("resourcesButton").addEventListener("click", () => populateList("resources"));
+document.getElementById("obstaclesButton").addEventListener("click", () => populateList("obstacles"));
