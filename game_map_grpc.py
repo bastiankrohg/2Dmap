@@ -21,6 +21,7 @@ class MappingServer(mars_rover_pb2_grpc.RoverServiceServicer):
         self.trace_scanned_area = False
         self.show_resource_list = False
         self.show_obstacle_list = False
+        self.scanned_surface = None
         print("[DEBUG] MappingServer initialized.")
 
     def DriveForward(self, request, context):
@@ -111,6 +112,19 @@ class MappingServer(mars_rover_pb2_grpc.RoverServiceServicer):
         print(f"[DEBUG] Scanning {status}.")
         return mars_rover_pb2.CommandResponse(success=True, message=f"Scanning {status}.")
 
+    def SaveMap(self, request, context):
+        save_map(
+            self.path,
+            self.rover_pos,
+            self.resources,
+            self.obstacles,
+            self.rover_angle,
+            self.mast_angle,
+            name=request.file_name if request.file_name else "map.json",
+            scanned_surface=self.scanned_surface
+        )
+        return mars_rover_pb2.CommandResponse(success=True, message="Map saved successfully.")
+
     def _compute_position(self, distance):
         corrected_angle = (self.mast_angle + 90) % 360  # Correct the offset
         rad_angle = math.radians(corrected_angle)
@@ -122,7 +136,7 @@ class MappingServer(mars_rover_pb2_grpc.RoverServiceServicer):
         """Add the current position to the traced path."""
         self.path.append(self.rover_pos[:])
 
-def game_loop(server, scanned_surface, args):
+def game_loop(server, args):
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("Rover Mapping - gRPC Controlled")
@@ -143,11 +157,11 @@ def game_loop(server, scanned_surface, args):
 
         if server.trace_scanned_area:
             draw_fov(screen, server.rover_pos, server.mast_angle, view_offset)
-            update_scanned_area(scanned_surface, server.rover_pos, server.mast_angle)
+            update_scanned_area(server.scanned_surface, server.rover_pos, server.mast_angle)
 
         # Blit scanned surface adjusted for viewport
         screen.blit(
-            scanned_surface,
+            server.scanned_surface,
             (view_offset[0] + SCANNED_OFFSET[0], view_offset[1] + SCANNED_OFFSET[1]),
             pygame.Rect(0, 0, MAP_SIZE, MAP_SIZE)
         )
@@ -185,11 +199,11 @@ def main():
     grpc_server.add_insecure_port(args.server)
     grpc_server.start()
 
-    scanned_surface = pygame.Surface((MAP_SIZE, MAP_SIZE), pygame.SRCALPHA)
-    scanned_surface.fill((0, 0, 0, 0))  # Fully transparent background
+    server.scanned_surface = pygame.Surface((MAP_SIZE, MAP_SIZE), pygame.SRCALPHA)
+    server.scanned_surface.fill((0, 0, 0, 0))  # Fully transparent background
 
     try:
-        game_loop(server, scanned_surface, args)
+        game_loop(server, args)
     except KeyboardInterrupt:
         print("[DEBUG] Shutting down gRPC server.")
         grpc_server.stop(0)  # Stop the server gracefully
