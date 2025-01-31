@@ -102,6 +102,14 @@ When running the `game_map_grpc.py` script, you can control the rover and intera
 Use these controls to test the full functionality of the gRPC-enabled rover mapping module.
 
 ---
+Demo videos from development
+[Watch the video](web_mapping_demo.mp4)
+
+[Watch the video](pygame_blit.mp4)
+
+[Watch the video](pygame.mp4)
+
+---
 
 ### Future Updates
 
